@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<interface>
+    <template class="ModelSwitcher" parent="GtkWidget">
+        <child>
+            <object class="GtkBox" id="model_box">
+                <property name="orientation">vertical</property>
+                <property name="spacing">1</property>
+                <child>
+                    <object class="GtkBox">
+                        <property name="margin-bottom">4</property>
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">10</property>
+                        <property name="halign">center</property>
+                        <child>
+                            <object class="GtkToggleButton" id="inner_layer_toggle">
+                                <property name="label">inner</property>
+                                <property name="active">true</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton" id="outer_layer_toggle">
+                                <property name="label">outer</property>
+                                <property name="active">true</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="halign">center</property>
+                        <child>
+                            <object class="GtkToggleButton" id="head">
+                                <property name="active">true</property>
+
+                                <property name="width_request">80</property>
+                                <property name="height_request">80</property>
+
+                                <style>
+                                    <class name="square-button"/>
+                                    <class name="test"/>
+                                </style>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="halign">center</property>
+                        <property name="spacing">1</property>
+                        <child>
+                            <object class="GtkToggleButton" id="right_arm">
+                                <property name="active">true</property>
+
+                                <property name="width_request">40</property>
+                                <property name="height_request">104</property>
+
+                                <style>
+                                    <class name="square-button"/>
+                                    <class name="test"/>
+                                </style>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton" id="body">
+                                <property name="active">true</property>
+
+                                <property name="width_request">80</property>
+                                <property name="height_request">104</property>
+
+                                <style>
+                                    <class name="square-button"/>
+                                    <class name="test"/>
+                                </style>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton" id="left_arm">
+                                <property name="active">true</property>
+
+                                <property name="width_request">40</property>
+                                <property name="height_request">104</property>
+
+                                <style>
+                                    <class name="square-button"/>
+                                    <class name="test"/>
+                                </style>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="halign">center</property>
+                        <property name="spacing">1</property>
+                        <child>
+                            <object class="GtkToggleButton" id="right_leg">
+                                <property name="active">true</property>
+
+                                <property name="width_request">40</property>
+                                <property name="height_request">104</property>
+
+                                <style>
+                                    <class name="square-button"/>
+                                </style>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton" id="left_leg">
+                                <property name="active">true</property>
+
+                                <property name="width_request">40</property>
+                                <property name="height_request">104</property>
+
+                                <style>
+                                    <class name="square-button"/>
+                                </style>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>
+
