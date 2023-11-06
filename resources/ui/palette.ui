@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<interface>
+    <template class="Palette" parent="GtkWidget">
+        <child>
+            <object class="GtkBox" id="main_box">
+                <property name="orientation">vertical</property>
+                <property name="halign">center</property>
+                <child>
+                    <object class="GtkBox" id="row_box_1">
+                        <property name="orientation">horizontal</property>
+                        <child>
+                            <object class="GtkToggleButton" id="color_1">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton">
+                                <property name="width_request">5</property>
+                                <property name="height_request">5</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>
