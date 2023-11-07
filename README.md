@@ -5,3 +5,4 @@
 ### Known issues
 * Binary file fails immediately
 * Artifacts on the model
+* Bad performance of drawing
