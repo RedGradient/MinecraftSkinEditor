@@ -30,7 +30,6 @@
                                         <property name="icon-name">document-save-symbolic</property>
                                         <property name="label" translatable="yes">_Save</property>
                                         <property name="use-underline">True</property>
-                                        <property name="sensitive">false</property>
                                     </object>
                                 </property>
                             </object>
