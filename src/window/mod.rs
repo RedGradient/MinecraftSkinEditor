@@ -16,7 +16,10 @@ use Tool::*;
 
 use crate::application::Application;
 use crate::glium_area::body_part::BodyPart::*;
+use crate::glium_area::GliumArea;
 use crate::glium_area::hover_state::HoverState;
+use crate::glium_area::renderer::ModelCell;
+use crate::window::imp::Command;
 
 mod imp;
 
@@ -35,6 +38,41 @@ impl Default for Tool {
         Self::Pencil
     }
 }
+
+
+struct Pencil {
+    prev_cell: ModelCell,
+    new_cell: ModelCell,
+}
+impl Command for Pencil {
+    fn execute(&self, gl_area: &GliumArea) {
+        let renderer = gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+        renderer.set_cell(&self.new_cell);
+        gl_area.queue_draw();
+    }
+    fn undo(&self, gl_area: &GliumArea) {
+        let renderer = gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+        renderer.set_cell(&self.prev_cell);
+        gl_area.queue_draw();
+    }
+}
+impl Pencil {
+    pub fn new(target_cell: ModelCell, new_color: [f32; 4]) -> Pencil {
+        let new_cell = ModelCell {
+            body_part: target_cell.body_part.clone(),
+            cell_index: target_cell.cell_index,
+            color: new_color
+        };
+
+        Pencil {
+            prev_cell: target_cell,
+            new_cell
+        }
+    }
+}
+
 
 glib::wrapper! {
     pub struct Window(ObjectSubclass<imp::Window>)
@@ -309,24 +347,38 @@ impl Window {
             clone!(@weak self as win => move |_, _, x, y| {
                 let gl_area = &win.imp().gl_area;
                 let renderer = gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
                 let (x, y) = (x as f32, y as f32);
 
-                let is_clicked_on_model = renderer.is_model_clicked(x, y);
-                if is_clicked_on_model {
+                let cell_opt = renderer.borrow().get_cell(x, y, false);
+                if let Some(cell) = cell_opt {
                     match win.imp().current_tool.get() {
                         Pencil => {
                             let rgba = win.imp().color_button.rgba();
-                            let color = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
-                            renderer.paint(x, y, color);
+                            let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
+                            let target_cell = ModelCell {
+                                body_part: cell.body_part.clone(),
+                                cell_index: cell.cell_index,
+                                color: cell.color
+                            };
+                            let command = Pencil::new(target_cell, new_color);
+                            command.execute(gl_area);
+                            win.imp().drawing_history.borrow_mut().add_command(Box::new(command));
                         },
                         Rubber => {
-                            let color = [0.0, 0.0, 0.0, 0.0];
-                            renderer.paint(x, y, color);
+                            let new_color = [0.0, 0.0, 0.0, 0.0];
+                            let target_cell = ModelCell {
+                                body_part: cell.body_part.clone(),
+                                cell_index: cell.cell_index,
+                                color: cell.color
+                            };
+                            let command = Pencil::new(target_cell, new_color);
+                            command.execute(gl_area);
+                            win.imp().drawing_history.borrow_mut().add_command(Box::new(command));
                         },
                         ColorPicker => {
-                            let clicked_cell_color = renderer.get_color(x, y);
-                            if let Some(color) = clicked_cell_color {
+                            let clicked_cell = renderer.borrow().get_cell(x, y, true);
+                            if let Some(cell) = clicked_cell {
+                                let color = cell.color;
                                 let rgba = RGBA::new(color[0], color[1], color[2], color[3]);
                                 win.imp().color_button.set_rgba(&rgba);
                                 win.imp().pencil.set_active(true);
@@ -334,11 +386,11 @@ impl Window {
                         }
                         _ => unimplemented!("This tool is unimplemented yet"),
                     }
-                    renderer.set_mouse_hover(Some(HoverState::OnModel));
+                    renderer.borrow_mut().set_mouse_hover(Some(HoverState::OnModel));
                 } else {
-                    renderer.set_mouse_hover(Some(HoverState::OnEmptyArea));
+                    renderer.borrow_mut().set_mouse_hover(Some(HoverState::OnEmptyArea));
                 }
-                renderer.start_motion(x, y);
+                renderer.borrow_mut().start_motion(x, y);
                 gl_area.queue_draw();
             })
         );

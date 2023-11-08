@@ -23,6 +23,13 @@ use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::SkinParser;
 use crate::glium_area::vertex::Vertex;
 
+pub struct ModelCell {
+    pub body_part: BodyPart,
+    pub cell_index: usize,
+    pub color: [f32; 4],
+}
+
+
 pub struct Renderer {
     pub context: Rc<Context>,
     program: Rc<glium::Program>,
@@ -318,8 +325,6 @@ impl Renderer {
             self.model_objects.get_mut(body_part).unwrap().draw(&mut frame);
         }
 
-        // for object in self.model_objects.values_mut() { object.draw(&mut frame); }
-
         frame.finish().unwrap();
     }
 
@@ -392,10 +397,10 @@ impl Renderer {
         info.is_some()
     }
 
-    /// Returns a cell by screen coordinates.
-    pub fn get_cell(&self, x: f32, y: f32, colored: bool) -> Option<(BodyPart, CrossInfo)> {
+    /// Returns the nearest clicked cell by screen coordinates.
+    pub fn get_cell(&self, x: f32, y: f32, must_be_colored: bool) -> Option<ModelCell> {
         let ray = self.ray_to(x, y);
-        let mut clicked_cell: Option<(BodyPart, CrossInfo)> = None;
+        let mut clicked_cell: Option<(ModelCell, f32)> = None;
         for body_part in self.visible_objects.iter() {
             let model_object = self.model_objects.get(body_part).unwrap();
             let cross = match model_object.cross(&ray) {
@@ -404,44 +409,49 @@ impl Renderer {
             };
 
             // check if the color is transparent
-            if colored && model_object.get_pixel(cross.cell_index) == [0.0, 0.0, 0.0, 0.0] {
+            if must_be_colored && model_object.get_pixel(cross.cell_index) == [0.0, 0.0, 0.0, 0.0] {
                 continue;
             }
 
             match clicked_cell {
-                None => clicked_cell = Some((body_part.clone(), cross)),
-                Some((_, other_cross)) => {
-                    if cross.dist < other_cross.dist {
-                        clicked_cell = Some((body_part.clone(), cross))
+                Some((_, other_cross_distance)) => {
+                    if cross.dist < other_cross_distance {
+                        let cell = ModelCell {
+                            body_part: body_part.clone(),
+                            cell_index: cross.cell_index,
+                            color: model_object.get_pixel(cross.cell_index),
+                        };
+                        clicked_cell = Some((cell, cross.dist))
                     }
+                },
+                None => {
+                    let cell = ModelCell {
+                        body_part: body_part.clone(),
+                        cell_index: cross.cell_index,
+                        color: model_object.get_pixel(cross.cell_index),
+                    };
+                    clicked_cell = Some((cell, cross.dist));
                 }
             }
         }
 
-        return clicked_cell;
+
+        return match clicked_cell {
+            Some((cell, _)) => Some(cell),
+            None => None
+        };
     }
 
-    pub fn get_color(&self, x: f32, y: f32) -> Option<[f32; 4]> {
-        let clicked_cell = self.get_cell(x, y, true);
-        if clicked_cell.is_none() {
-            return None;
-        }
-        let (body_part, cross_data) = clicked_cell.unwrap();
-        if !self.visible_objects.contains(&body_part) {
-            return None;
-        }
-        let color = self.model_objects
-            .get(&body_part)
-            .unwrap()
-            .get_pixel(cross_data.cell_index);
-        return Some(color);
+    pub fn set_cell(&mut self, cell: &ModelCell) {
+        let mut model_object = self.model_objects.get_mut(&cell.body_part).unwrap();
+        model_object.paint(cell.cell_index, cell.color);
     }
-    
+
     pub fn paint(&mut self, x: f32, y: f32, color: [f32; 4]) {
         let clicked_cell = self.get_cell(x, y, false);
-        if let Some((body_part, cross_data)) = clicked_cell {
-            if self.visible_objects.contains(&body_part) {
-                self.model_objects.get_mut(&body_part).unwrap().paint(cross_data.cell_index, color);
+        if let Some(cell) = clicked_cell {
+            if self.visible_objects.contains(&cell.body_part) {
+                self.model_objects.get_mut(&cell.body_part).unwrap().paint(cell.cell_index, color);
             }
         }
     }
