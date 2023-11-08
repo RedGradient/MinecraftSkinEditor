@@ -11,7 +11,6 @@ use gtk::prelude::ColorChooserExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use libadwaita as adw;
-use log::info;
 
 use Tool::*;
 
@@ -56,23 +55,9 @@ impl Window {
 
     fn connect_signals(&self) {
         self.connect_open_button();
+        self.connect_save_button();
         self.connect_model_switcher();
         self.connect_gl_area();
-
-
-        self.imp().save_button.connect_clicked(
-            clone!(@weak self as win => move |btn| {
-                let renderer = win.imp().gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
-                let texture = renderer.export_texture();
-                match texture.save("resources/textures/texture.png") {
-                    Ok(()) => println!("Saved"),
-                    Err(error) => println!("{}", error.to_string()),
-                }
-            })
-        );
-
-        // self.imp().color_button.connect_color_set();
 
         let pencil_ico = gtk::Image::from_file("resources/pencil.png");
         self.imp().pencil.set_child(Some(&pencil_ico));
@@ -250,6 +235,52 @@ impl Window {
         });
     }
 
+    fn connect_save_button(&self) {
+        let dialog = FileChooserNative::new(
+            Some("Save a skin"),
+            Some(self),
+            FileChooserAction::Save,
+            Some("Save"),
+            Some("Cancel")
+        );
+        let win = self.clone();
+        self.imp().save_button.connect_clicked(move |btn: &gtk::Button| {
+            let gl_area = win.imp().gl_area.get();
+            dialog.run_async(move |this, _response| {
+                let renderer = gl_area.renderer().unwrap();
+                let mut renderer = renderer.borrow_mut();
+                let file = match this.file() {
+                    Some(file) => file,
+                    None => {
+                        println!("Saving rejected");
+                        return;
+                    },
+                };
+
+                let pathbuf = match file.path() {
+                    Some(pathbuf) => pathbuf,
+                    None => {
+                        println!("File has no path");
+                        return;
+                    }
+                };
+                let path = match pathbuf.to_str() {
+                    Some(path) => path,
+                    None => {
+                        println!("Unsupported encoding of path");
+                        return;
+                    }
+                };
+
+                let imgbuf = renderer.export_texture();
+                match imgbuf.save(path) {
+                    Ok(_) => println!("Saved at {}", path),
+                    Err(error) => println!("{}", error),
+                }
+            });
+        });
+    }
+    
     fn connect_gl_area(&self) {
         // --- CALCULATE FPS ---
         let frame_count = Rc::new(Cell::new(0));
@@ -317,7 +348,6 @@ impl Window {
             let mut renderer = renderer.borrow_mut();
             renderer.stop_motion();
             renderer.set_mouse_hover(None);
-            info!("released");
         });
 
         // --- MOUSE MOTION ---
