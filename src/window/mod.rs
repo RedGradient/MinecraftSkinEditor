@@ -243,6 +243,7 @@ impl Window {
             Some("Save"),
             Some("Cancel")
         );
+        dialog.set_current_name("untitled.png");
         let win = self.clone();
         self.imp().save_button.connect_clicked(move |btn: &gtk::Button| {
             let gl_area = win.imp().gl_area.get();
