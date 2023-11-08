@@ -36,22 +36,22 @@
                         </child>
                         <child type="start">
                             <object class="GtkButton" id="undo_button">
+                                <property name="action-name">win.undo</property>
                                 <property name="child">
                                     <object class="AdwButtonContent">
                                         <property name="icon-name">go-previous-symbolic</property>
                                     </object>
                                 </property>
-                                <property name="sensitive">false</property>
                             </object>
                         </child>
                         <child type="start">
                             <object class="GtkButton" id="redo_button">
+                                <property name="action-name">win.redo</property>
                                 <property name="child">
                                     <object class="AdwButtonContent">
                                         <property name="icon-name">go-next-symbolic</property>
                                     </object>
                                 </property>
-                                <property name="sensitive">false</property>
                             </object>
                         </child>
                         <child type="end">
