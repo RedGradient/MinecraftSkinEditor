@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+
+    <gresource prefix="/io/redgradient/MCSkinEditor/">
+        <file compressed="true">ui/icons/scalable/actions/edit-undo-symbolic.svg</file>
+        <file compressed="true">ui/icons/scalable/actions/edit-redo-symbolic.svg</file>
+    </gresource>
+
+    <gresource prefix="/io/redgradient/MCSkinEditor/media/">
+        <file alias="pencil.png">ui/media/pencil.png</file>
+        <file alias="eraser.png">ui/media/eraser.png</file>
+        <file alias="color_picker.png">ui/media/color_picker.png</file>
+    </gresource>
+
+    <gresource prefix="/io/redgradient/MCSkinEditor/">
+        <file alias="window.ui">ui/window.ui</file>
+    </gresource>
+
+</gresources>
