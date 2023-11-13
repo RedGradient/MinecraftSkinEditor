@@ -276,6 +276,7 @@ impl Window {
         let win = self.clone();
         self.imp().open_button.connect_clicked(move |btn: &gtk::Button| {
             let gl_area = win.imp().gl_area.get();
+            let win_clone = win.clone();
             dialog.run_async(move |this, _response| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
@@ -289,6 +290,8 @@ impl Window {
 
                 renderer.load_texture(path);
                 gl_area.queue_draw();
+
+                win_clone.imp().drawing_history.borrow_mut().clear();
             });
         });
     }
