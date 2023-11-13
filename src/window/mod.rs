@@ -1,15 +1,18 @@
 use std::cell::Cell;
+use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
 
 use gtk::{EventControllerMotion, EventControllerScroll, EventControllerScrollFlags, FileChooserAction, FileChooserNative, GestureClick, gio};
 use gtk::gdk::RGBA;
+use gtk::gio::{FileIcon, Icon};
 use gtk::glib;
 use gtk::glib::{clone, ObjectExt, Propagation};
 use gtk::prelude::{ButtonExt, FileChooserExt, FileExt, GLAreaExt, GtkWindowExt, NativeDialogExtManual, ToggleButtonExt};
 use gtk::prelude::ColorChooserExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
+use gvdb_macros::include_gresource_from_xml;
 use libadwaita as adw;
 
 use Tool::*;
@@ -97,17 +100,18 @@ impl Window {
         self.connect_model_switcher();
         self.connect_gl_area();
 
-        let pencil_ico = gtk::Image::from_file("resources/pencil.png");
-        self.imp().pencil.set_child(Some(&pencil_ico));
+        // load icons
+        let pencil_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/pencil.png");
+        let rubber_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/eraser.png");
+        let color_picker_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/color_picker.png");
 
+        self.imp().pencil.set_child(Some(&pencil_ico));
         self.imp().pencil.connect_toggled(
             clone!(@weak self as win => move |btn| {
-                win.action_set_enabled("win.test", true);
                 win.imp().current_tool.replace(Tool::Pencil);
             })
         );
 
-        let rubber_ico = gtk::Image::from_file("resources/eraser.png");
         self.imp().rubber.set_child(Some(&rubber_ico));
         self.imp().rubber.connect_toggled(
             clone!(@weak self as win => move |btn| {
@@ -115,10 +119,26 @@ impl Window {
             })
         );
 
-        let color_picker_ico = gtk::Image::from_file("resources/color_picker.png");
         self.imp().color_picker.set_child(Some(&color_picker_ico));
         self.imp().color_picker.connect_toggled(
             clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); })
+        );
+
+        // let undo_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/ui/icons/scalable/actions/edit-undo-symbolic.svg");
+        // self.imp().undo_button.set_child(Some(&undo_ico));
+        // self.imp().undo_button.set_icon_name("edit-undo-symbolic");
+
+        // let redo_ico = gtk::Image::from_file("resources/edit-redo-symbolic.svg");
+        // self.imp().redo_button.set_child(Some(&redo_ico));
+
+        self.imp().grid_toggle.connect_toggled(
+            clone!(@weak self as win => move |btn| {
+                let gl_area = win.imp().gl_area.get();
+                let renderer = gl_area.renderer().unwrap();
+                let mut renderer = renderer.borrow_mut();
+                renderer.set_grid_show(btn.is_active());
+                gl_area.queue_draw();
+            })
         );
     }
 

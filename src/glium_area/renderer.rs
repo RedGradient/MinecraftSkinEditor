@@ -5,7 +5,7 @@ use std::hash::Hash;
 use std::io::Read;
 use std::rc::Rc;
 
-use glium::{Frame, Surface};
+use glium::{Frame, Program, Surface};
 use glium::backend::Context;
 use image::{ImageBuffer, Rgba};
 use nalgebra_glm as glm;
@@ -14,14 +14,12 @@ use nalgebra_glm::Mat4;
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::camera::Camera;
-use crate::glium_area::cross_info::CrossInfo;
 use crate::glium_area::hover_state::HoverState;
 use crate::glium_area::model::{arm_fn, body_fn, head_fn};
-use crate::glium_area::model_object::ModelObject;
+use crate::glium_area::model_object::{ModelIndexType, ModelObject};
 use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::SkinParser;
-use crate::glium_area::vertex::Vertex;
 
 pub struct ModelCell {
     pub body_part: BodyPart,
@@ -31,8 +29,8 @@ pub struct ModelCell {
 
 
 pub struct Renderer {
-    pub context: Rc<Context>,
-    program: Rc<glium::Program>,
+    context: Rc<Context>,
+    program: Rc<Program>,
     camera: Rc<RefCell<Camera>>,
     mouse_motion: Option<MouseMove>,
     mouse_move_on_model: bool,
@@ -42,166 +40,113 @@ pub struct Renderer {
     visible_objects: BTreeSet<BodyPart>,
     current_color: glm::Vec4,
     mouse_hover: Option<HoverState>,
+
+    grid: bool,
+    grid_objects: BTreeMap<BodyPart, ModelObject>,
 }
 
-impl Renderer {
-    pub fn new(context: Rc<glium::backend::Context>) -> Self {
-        let vertex_shader = Renderer::get_shader_source("resources/shaders/vertex.glsl");
-        let fragment_shader = Renderer::get_shader_source("resources/shaders/fragment.glsl");
 
-        let program = glium::Program::from_source(
-            &context,
-            vertex_shader.as_str(),
-            fragment_shader.as_str(),
-            None,
-        ).unwrap();
-        let program = Rc::new(program);
-        let camera = Rc::new(RefCell::new(Camera::new()));
-        let projection_matrix = glm::Mat4::identity();
+const BACKGROUND_COLOR: (f32, f32, f32, f32) = (1.0, 1.0, 1.0, 1.0);
+const INNER_SCALE_VECTOR: glm::Vec3 = glm::Vec3::new(1.0, 1.0, 1.0);
+const OUTER_SCALE_VECTOR: glm::Vec3 = glm::Vec3::new(1.15, 1.15, 1.15);
+const GRID_SCALE: f32 = 1.005;
+
+
+impl Renderer {
+    fn create_model_objects(context: Rc<Context>, program: Rc<Program>, camera: Rc<RefCell<Camera>>) -> BTreeMap<BodyPart, ModelObject> {
 
         let head = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &head_fn::head_vertexes(),
-            &head_fn::head_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(head_fn::head_indexes()),
             &glm::Vec3::new(0., 1.5, 0.),
-            &glm::Vec3::new(1., 1., 1.),
+            &INNER_SCALE_VECTOR,
         );
 
         let body = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &body_fn::body_vertexes(),
-            &body_fn::body_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(body_fn::body_indexes()),
             &glm::Vec3::new(0., 0.25, 0.),
-            &glm::Vec3::new(1., 1., 1.),
+            &INNER_SCALE_VECTOR,
         );
 
         let right_arm = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            // &Renderer::arm_front_lines(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(-0.75, 0.25, 0.),
-            &glm::Vec3::new(1., 1., 1.),
+            &INNER_SCALE_VECTOR,
         );
 
         let left_arm = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(0.75, 0.25, 0.),
-            &glm::Vec3::new(1., 1., 1.),
+            &INNER_SCALE_VECTOR,
         );
 
         let right_leg = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(-0.25, -1.25, 0.),
-            &glm::Vec3::new(1., 1., 1.),
+            &INNER_SCALE_VECTOR,
         );
 
         let left_leg = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(0.25, -1.25, 0.),
-            &glm::Vec3::new(1., 1., 1.),
+            &INNER_SCALE_VECTOR,
         );
 
-        const OUTER_SCALE_VECTOR: glm::Vec3 = glm::Vec3::new(1.15, 1.15, 1.15);
-
         let head_outer = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &head_fn::head_vertexes(),
-            &head_fn::head_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(head_fn::head_indexes()),
             &glm::Vec3::new(0.0, 1.5, 0.0),
             &OUTER_SCALE_VECTOR,
         );
 
         let body_outer = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &body_fn::body_vertexes(),
-            &body_fn::body_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(body_fn::body_indexes()),
             &glm::Vec3::new(0., 0.25, 0.),
             &OUTER_SCALE_VECTOR,
         );
 
         let right_arm_outer = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(-0.75, 0.25, 0.),
             &OUTER_SCALE_VECTOR,
         );
 
         let left_arm_outer = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(0.75, 0.25, 0.),
             &OUTER_SCALE_VECTOR,
         );
 
         let right_leg_outer = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(-0.25, -1.25, 0.),
             &OUTER_SCALE_VECTOR,
         );
 
         let left_leg_outer = ModelObject::new(
-            context.clone(),
-            program.clone(),
-            camera.clone(),
+            context.clone(), program.clone(), camera.clone(),
             &arm_fn::arm_vertexes(),
-            &arm_fn::arm_indexes(),
-            &[],
-            &[],
+            ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
             &glm::Vec3::new(0.25, -1.25, 0.),
             &OUTER_SCALE_VECTOR,
         );
@@ -222,6 +167,135 @@ impl Renderer {
         model_objects.insert(BodyPart::RightLegOuter, right_leg_outer);
         model_objects.insert(BodyPart::LeftLegOuter, left_leg_outer);
 
+        model_objects
+    }
+
+    fn create_grid_objects(context: Rc<Context>, program: Rc<Program>, camera: Rc<RefCell<Camera>>) -> BTreeMap<BodyPart, ModelObject> {
+
+        let head_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &head_fn::head_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0., 1.5, 0.),
+            &INNER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let body_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &body_fn::body_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0., 0.25, 0.),
+            &INNER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let right_arm_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(-0.75, 0.25, 0.),
+            &INNER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let left_arm_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0.75, 0.25, 0.),
+            &INNER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let right_leg_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(-0.25, -1.25, 0.),
+            &INNER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let left_leg_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0.25, -1.25, 0.),
+            &INNER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let head_outer_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &head_fn::head_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0.0, 1.5, 0.0),
+            &OUTER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let body_outer_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &body_fn::body_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0., 0.25, 0.),
+            &OUTER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let right_arm_outer_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(-0.75, 0.25, 0.),
+            &OUTER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let left_arm_outer_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0.75, 0.25, 0.),
+            &OUTER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let right_leg_outer_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(-0.25, -1.25, 0.),
+            &OUTER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let left_leg_outer_grid = ModelObject::new(
+            context.clone(), program.clone(), camera.clone(),
+            &arm_fn::arm_grid(), ModelIndexType::LinesList,
+            &glm::Vec3::new(0.25, -1.25, 0.),
+            &OUTER_SCALE_VECTOR.scale(GRID_SCALE),
+        );
+
+        let mut grid_objects: BTreeMap<BodyPart, ModelObject> = BTreeMap::new();
+        // --- INNER LAYER ---
+        grid_objects.insert(BodyPart::Head, head_grid);
+        grid_objects.insert(BodyPart::Torso, body_grid);
+        grid_objects.insert(BodyPart::RightArm, right_arm_grid);
+        grid_objects.insert(BodyPart::LeftArm, left_arm_grid);
+        grid_objects.insert(BodyPart::RightLeg, right_leg_grid);
+        grid_objects.insert(BodyPart::LeftLeg, left_leg_grid);
+        // --- OUTER LAYER ---
+        grid_objects.insert(BodyPart::HeadOuter, head_outer_grid);
+        grid_objects.insert(BodyPart::TorsoOuter, body_outer_grid);
+        grid_objects.insert(BodyPart::RightArmOuter, right_arm_outer_grid);
+        grid_objects.insert(BodyPart::LeftArmOuter, left_arm_outer_grid);
+        grid_objects.insert(BodyPart::RightLegOuter, right_leg_outer_grid);
+        grid_objects.insert(BodyPart::LeftLegOuter, left_leg_outer_grid);
+
+        grid_objects
+    }
+
+    pub fn new(context: Rc<glium::backend::Context>) -> Self {
+        let vertex_shader = Renderer::get_shader_source("resources/shaders/vertex.glsl");
+        let fragment_shader = Renderer::get_shader_source("resources/shaders/fragment.glsl");
+
+        let program = glium::Program::from_source(
+            &context,
+            vertex_shader.as_str(),
+            fragment_shader.as_str(),
+            None,
+        ).unwrap();
+        let program = Rc::new(program);
+        let camera = Rc::new(RefCell::new(Camera::new()));
+        let projection_matrix = glm::Mat4::identity();
+
+        let model_objects = Renderer::create_model_objects(
+            context.clone(), program.clone(), camera.clone()
+        );
+        let grid_objects = Renderer::create_grid_objects(
+            context.clone(), program.clone(), camera.clone()
+        );
+
         let mut visible_objects = BTreeSet::from([
             Head, Torso, RightArm, LeftArm, RightLeg, LeftLeg,
             HeadOuter, TorsoOuter, RightArmOuter, LeftArmOuter, RightLegOuter, LeftLegOuter
@@ -234,41 +308,19 @@ impl Renderer {
             mouse_motion: None,
             mouse_move_on_model: false,
             projection_matrix,
-            transform_matrix: glm::Mat4::identity(),
+            transform_matrix: Mat4::identity(),
             model_objects,
             visible_objects,
             current_color: glm::Vec4::new(0., 0., 1., 1.),
             mouse_hover: None,
+
+            grid: true,
+            grid_objects,
         }
     }
 
-    fn arm_front_lines() -> Vec<Vertex> {
-        let mut lines = Vec::new();
-
-        let width: u32 = 4;
-        let height: u32 = 12;
-
-        let grid_size = 8.0;
-        let cell_size = 1.0 / grid_size;
-
-        let z = 0.25;
-
-        for i in 0..height {
-            let y = 0.75 - i as f32 * cell_size;
-            for j in 0..width {
-                let x = -0.25 + j as f32 * cell_size;
-
-                // --- 2 VERTICAL LINES ---
-                lines.push(Vertex { position: [x, -0.75, z], color: [0., 0., 0., 1.0]});
-                lines.push(Vertex { position: [x, 0.75, z], color: [0., 0., 0., 1.0]});
-            }
-
-            // --- 2 HORIZONTAL LINES ---
-            lines.push(Vertex { position: [-0.25, y, z], color: [0., 0., 0., 1.0]});
-            lines.push(Vertex { position: [0.25, y, z], color: [0., 0., 0., 1.0]});
-        }
-
-        lines
+    pub fn set_grid_show(&mut self, show: bool) {
+        self.grid = show;
     }
 
     pub fn load_texture(&mut self, path: &str) {
@@ -319,9 +371,12 @@ impl Renderer {
             self.context.get_framebuffer_dimensions(),
         );
 
-        frame.clear_color_and_depth((0.0, 0.0, 0.0, 0.0), 1.0);
+        frame.clear_color_and_depth(BACKGROUND_COLOR, 1.0);
 
         for body_part in &self.visible_objects {
+            if self.grid {
+                self.grid_objects.get_mut(body_part).unwrap().draw(&mut frame);
+            }
             self.model_objects.get_mut(body_part).unwrap().draw(&mut frame);
         }
 
