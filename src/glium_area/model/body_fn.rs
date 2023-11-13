@@ -1,6 +1,7 @@
-use crate::glium_area::model::generate_indexes;
+use crate::glium_area::model::{CELL_SIZE, generate_indexes, GRID_COLOR};
 use crate::glium_area::vertex::Vertex;
 
+const GRID_SIZE: f32 = 8.0;
 const BODY_CELLS_COUNT: usize = 352;
 
 fn body_front() -> Vec<Vertex> {
@@ -9,28 +10,25 @@ fn body_front() -> Vec<Vertex> {
     let width = 8;
     let height = 12;
 
-    let cell_size = 1.0 / 8.0;
-    let grid_size = 8;
-
     for i in 0..height {
         for j in 0..width {
-            let x = -0.5 + j as f32 * cell_size;
-            let y = 0.75 - i as f32 * cell_size;
+            let x = -0.5 + j as f32 * CELL_SIZE;
+            let y = 0.75 - i as f32 * CELL_SIZE;
             let z = 0.25;
 
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x + cell_size, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x + CELL_SIZE, y, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x + cell_size, y - cell_size, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x + CELL_SIZE, y - CELL_SIZE, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y - cell_size, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y - CELL_SIZE, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
         }
     }
 
@@ -42,29 +40,26 @@ fn body_left() -> Vec<Vertex> {
 
     let width = 4;
     let height = 12;
-
-    let cell_size = 1.0 / 8.0;
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = 0.5;
-            let y = 0.75 - i as f32 * cell_size;
-            let z = 0.25 - j as f32 * cell_size;
+            let y = 0.75 - i as f32 * CELL_SIZE;
+            let z = 0.25 - j as f32 * CELL_SIZE;
 
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y, z - cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y, z - CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y - cell_size, z - cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y - CELL_SIZE, z - CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y - cell_size, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y - CELL_SIZE, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
         }
     }
 
@@ -77,28 +72,25 @@ fn body_back() -> Vec<Vertex> {
     let width = 8;
     let height = 12;
 
-    let cell_size = 1.0 / 8.0;
-    let grid_size = 8;
-
     for i in 0..height {
         for j in 0..width {
-            let x = 0.5 - j as f32 * cell_size;
-            let y = 0.75 - i as f32 * cell_size;
+            let x = 0.5 - j as f32 * CELL_SIZE;
+            let y = 0.75 - i as f32 * CELL_SIZE;
             let z = -0.25;
 
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x - cell_size, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x - CELL_SIZE, y, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x - cell_size, y - cell_size, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x - CELL_SIZE, y - CELL_SIZE, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y - cell_size, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y - CELL_SIZE, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
         }
     }
 
@@ -111,28 +103,25 @@ fn body_right() -> Vec<Vertex> {
     let width = 4;
     let height = 12;
 
-    let grid_size = 8;
-    let cell_size = 1.0 / grid_size as f32;
-
     for i in 0..height {
         for j in 0..width {
             let x = -0.5;
-            let y = 0.75 - i as f32 * cell_size;
-            let z = -0.25 + j as f32 * cell_size;
+            let y = 0.75 - i as f32 * CELL_SIZE;
+            let z = -0.25 + j as f32 * CELL_SIZE;
 
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y, z + cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y, z + CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y - cell_size, z + cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y - CELL_SIZE, z + CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y - cell_size, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y - CELL_SIZE, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
         }
     }
 
@@ -145,28 +134,25 @@ fn body_top() -> Vec<Vertex> {
     let width = 8;
     let height = 4;
 
-    let grid_size = 8;
-    let cell_size = 1.0 / grid_size as f32;
-
     for i in 0..height {
         for j in 0..width {
-            let x = -0.5 + j as f32 * cell_size;
+            let x = -0.5 + j as f32 * CELL_SIZE;
             let y = 0.75;
-            let z = -0.25 + i as f32 * cell_size;
+            let z = -0.25 + i as f32 * CELL_SIZE;
 
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x + cell_size, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x + CELL_SIZE, y, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x + cell_size, y, z + cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x + CELL_SIZE, y, z + CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y, z + cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y, z + CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
         }
     }
 
@@ -179,41 +165,25 @@ fn body_bottom() -> Vec<Vertex> {
     let width = 8;
     let height = 4;
 
-    let grid_size = 8;
-    let cell_size = 1.0 / grid_size as f32;
-
     for i in 0..height {
         for j in 0..width {
-            let x = -0.5 + j as f32 * cell_size;
+            let x = -0.5 + j as f32 * CELL_SIZE;
             let y = -0.75;
-            let z = -0.25 + i as f32 * cell_size;
+            let z = -0.25 + i as f32 * CELL_SIZE;
 
             // --- 4 VERTEXES ---
-            // vertices.push(Vertex2 {
-            //     position: [x, y, z],
-            //     color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
-            // vertices.push(Vertex2 {
-            //     position: [x + cell_size, y, z],
-            //     color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
-            // vertices.push(Vertex2 {
-            //     position: [x + cell_size, y, z + cell_size],
-            //     color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
-            // vertices.push(Vertex2 {
-            //     position: [x, y, z + cell_size],
-            //     color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
-
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x, y, z + cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x, y, z + CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x + cell_size, y, z + cell_size],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x + CELL_SIZE, y, z + CELL_SIZE],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
             vertices.push(Vertex {
-                position: [x + cell_size, y, z],
-                color: [i as f32 / grid_size as f32, j as f32 / grid_size as f32, 0.0, 1.0]});
+                position: [x + CELL_SIZE, y, z],
+                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
         }
     }
 
@@ -236,4 +206,158 @@ pub fn body_vertexes() -> Vec<Vertex> {
 
 pub fn body_indexes() -> Vec<u16> {
     generate_indexes(BODY_CELLS_COUNT)
+}
+
+
+// ------------
+// --- GRID ---
+// ------------
+fn body_front_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    let width = 8;
+    let height = 12;
+
+    let z = 0.25;
+    for i in 0..height {
+        let y = 0.75 - i as f32 * CELL_SIZE;
+        for j in 0..width {
+            let x = -0.5 + j as f32 * CELL_SIZE;
+
+            // --- 2 VERTICAL LINES ---
+            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+        }
+        // --- 2 HORIZONTAL LINES ---
+        grid.push(Vertex { position: [-0.5, y, z], color: GRID_COLOR});
+        grid.push(Vertex { position: [0.5, y, z], color: GRID_COLOR});
+    }
+
+    grid
+}
+
+fn body_left_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    let width = 4;
+    let height = 12;
+
+    let x = 0.5;
+    for i in 0..height {
+        let y = 0.75 - i as f32 * CELL_SIZE;
+        for j in 0..width {
+            let z = 0.25 - j as f32 * CELL_SIZE;
+
+            // --- 2 VERTICAL LINES ---
+            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+        }
+        // --- 2 HORIZONTAL LINES ---
+        grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+        grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+    }
+
+    grid
+}
+
+fn body_back_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    let width = 8;
+    let height = 12;
+
+    let z = -0.25;
+    for i in 0..height {
+        let y = 0.75 - i as f32 * CELL_SIZE;
+        for j in 0..width {
+            let x = 0.5 - j as f32 * CELL_SIZE;
+            // --- 2 VERTICAL LINES ---
+            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+        }
+        // --- 2 HORIZONTAL LINES ---
+        grid.push(Vertex { position: [-0.5, y, z], color: GRID_COLOR});
+        grid.push(Vertex { position: [0.5, y, z], color: GRID_COLOR});
+    }
+
+    grid
+}
+
+fn body_right_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    let width = 4;
+    let height = 12;
+
+    let x = -0.5;
+    for i in 0..height {
+        let y = 0.75 - i as f32 * CELL_SIZE;
+        for j in 0..width {
+            let z = -0.25 + j as f32 * CELL_SIZE;
+            // --- 2 VERTICAL LINES ---
+            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+        }
+        // --- 2 HORIZONTAL LINES ---
+        grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+        grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+    }
+
+    grid
+}
+
+fn body_top_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    let width = 8;
+    let height = 4;
+
+    let y = 0.75;
+    for i in 0..height {
+        let z = -0.25 + (i as f32) * CELL_SIZE;
+        for j in 0..width {
+            let x = -0.5 + (j as f32) * CELL_SIZE;
+            grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+            grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+        }
+        grid.push(Vertex { position: [-0.5, y, z], color: GRID_COLOR});
+        grid.push(Vertex { position: [0.5, y, z], color: GRID_COLOR});
+    }
+
+    grid
+}
+
+fn body_bottom_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    let width = 8;
+    let height = 4;
+
+    let y = -0.75;
+    for i in 0..height {
+        let z = -0.25 + i as f32 * CELL_SIZE;
+        for j in 0..width {
+            let x = -0.5 + j as f32 * CELL_SIZE;
+            grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+            grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+        }
+        grid.push(Vertex { position: [-0.5, y, z], color: GRID_COLOR});
+        grid.push(Vertex { position: [0.5, y, z], color: GRID_COLOR});
+    }
+
+    grid
+}
+
+
+pub fn body_grid() -> Vec<Vertex> {
+    let mut grid = Vec::new();
+
+    grid.extend(body_front_grid());
+    grid.extend(body_left_grid());
+    grid.extend(body_back_grid());
+    grid.extend(body_right_grid());
+    grid.extend(body_top_grid());
+    grid.extend(body_bottom_grid());
+
+    grid
 }

@@ -1,11 +1,13 @@
 use std::cell::{Cell, RefCell};
 
 use gtk::{CompositeTemplate, glib, TemplateChild};
+use gtk::prelude::GtkWindowExt;
 use gtk::subclass::application_window::ApplicationWindowImpl;
 use gtk::subclass::prelude::{CompositeTemplate, CompositeTemplateInitializingExt, ObjectImpl, ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt, WidgetImpl, WindowImpl};
 use gtk::subclass::widget::WidgetClassExt;
 use libadwaita as adw;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
+use crate::APP_ID;
 
 use crate::glium_area::GliumArea;
 use crate::model_switcher::ModelSwitcher;
@@ -45,6 +47,7 @@ impl DrawingHistory {
 
 #[derive(CompositeTemplate, Default)]
 #[template(file = "../../resources/ui/window.ui")]
+// #[template(resource = "/io/redgradient/MCSkinEditor/window.ui")]
 pub struct Window {
     #[template_child]
     pub open_button: TemplateChild<gtk::Button>,
@@ -54,6 +57,8 @@ pub struct Window {
     pub undo_button: TemplateChild<gtk::Button>,
     #[template_child]
     pub redo_button: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub grid_toggle: TemplateChild<gtk::ToggleButton>,
     #[template_child]
     pub color_button: TemplateChild<gtk::ColorButton>,
     #[template_child]

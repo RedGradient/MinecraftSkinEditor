@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use glium::{DrawParameters, Frame, IndexBuffer, Surface, uniform, VertexBuffer};
@@ -12,23 +12,9 @@ use nalgebra_glm::Mat4;
 use crate::glium_area::camera::Camera;
 use crate::glium_area::cross_info::CrossInfo;
 use crate::glium_area::cube_side::CubeSide;
+use crate::glium_area::model_object::ModelIndexType::TrianglesList;
 use crate::glium_area::ray::Ray;
 use crate::glium_area::vertex::Vertex;
-
-pub struct ColorMap {
-    map: HashMap<i32, [f32; 3]>
-}
-impl ColorMap {
-    pub fn get(&self, index: &i32) -> Option<&[f32; 3]> {
-        self.map.get(index)
-    }
-    pub fn insert(&self, k: i32, v: &[f32; 3]) -> Option<[f32; 3]> {
-        Some(v.clone())
-    }
-    
-    /// Imports color map as part of Minecraft texture
-    pub fn import(&self) { }
-}
 
 pub struct ModelObject {
     context: Rc<Context>,
@@ -36,19 +22,19 @@ pub struct ModelObject {
     camera: Rc<RefCell<Camera>>,
 
     draw_parameters: DrawParameters<'static>,
-    draw_parameters_grid: DrawParameters<'static>,
 
     vertexes: Vec<Vertex>,
     vertex_buffer: VertexBuffer<Vertex>,
     index_buffer: IndexBuffer<u16>,
 
-    lines: Vec<Vertex>,
-    grid_buffer: VertexBuffer<Vertex>,
-    // lines_index_buffer: IndexBuffer<u16>,
-
     model_matrix: Mat4,
-    translation_matrix: glm::Mat4,
-    scale_matrix: glm::Mat4,
+    translation_matrix: Mat4,
+    scale_matrix: Mat4,
+}
+
+pub enum ModelIndexType {
+    TrianglesList(Vec<u16>),
+    LinesList
 }
 
 impl ModelObject {
@@ -57,55 +43,49 @@ impl ModelObject {
         program: Rc<glium::Program>,
         camera: Rc<RefCell<Camera>>,
         vertexes: &[Vertex],
-        indexes: &[u16],
-        line_vertexes: &[Vertex],
-        line_indexes: &[u16],
+        indexes: ModelIndexType,
         translation_vector: &glm::Vec3,
-        scale_vector: &glm::Vec3,
+        scale_vector: &glm::Vec3
     ) -> Self
     {
-        let draw_parameters = {
-            DrawParameters {
-                blend: glium::Blend::alpha_blending(),
-                backface_culling: glium::BackfaceCullingMode::CullCounterClockwise,
-                ..Default::default()
-            }
-        };
-        let draw_parameters_line = DrawParameters {
-            line_width: Some(5.0),
-            ..Default::default()
-        };
-
         let model_matrix = glm::Mat4::identity();
         let translation_matrix = glm::translate(&glm::Mat4::identity(), translation_vector);
         let scale_matrix = glm::scale(&glm::Mat4::identity(),scale_vector);
 
-        // --- CELLS BUFFERS ---
         let vertexes = vertexes.to_vec();
         let vertex_buffer = VertexBuffer::new(&context, &vertexes).unwrap();
-        let index_buffer = IndexBuffer::new(&context, PrimitiveType::TrianglesList, indexes).unwrap();
 
-        // --- GRID BUFFERS ---
-        let grid = line_vertexes.to_vec();
-        let grid_buffer = VertexBuffer::new(&context, line_vertexes).unwrap();
+        let mut draw_parameters: Option<DrawParameters> = None;
+        let mut index_buffer: Option<IndexBuffer<u16>> = None;
+        match indexes {
+            TrianglesList(data) => {
+                index_buffer = Some(IndexBuffer::new(&context, PrimitiveType::TrianglesList, &data).unwrap());
+                draw_parameters = Some(DrawParameters {
+                    blend: glium::Blend::alpha_blending(),
+                    backface_culling: glium::BackfaceCullingMode::CullCounterClockwise,
+                    ..Default::default()
+                });
+            },
+            ModelIndexType::LinesList => {
+                let mut data = Vec::with_capacity(vertexes.len());
+                for i in 0..vertexes.len() {
+                    data.push(i as u16);
+                }
+                index_buffer = Some(IndexBuffer::new(&context, PrimitiveType::LinesList, &data).unwrap());
+                draw_parameters = Some(DrawParameters {
+                    // line_width: Some(5.0),
+                    ..Default::default()
+                });
+            }
+        };
 
         ModelObject {
-            context,
-            program,
-            camera,
-
+            context, program, camera,
             model_matrix,
-
-            draw_parameters,
-            draw_parameters_grid: draw_parameters_line,
-
+            draw_parameters: draw_parameters.unwrap(),
             vertexes,
             vertex_buffer,
-            index_buffer,
-
-            lines: grid,
-            grid_buffer,
-
+            index_buffer: index_buffer.unwrap(),
             translation_matrix,
             scale_matrix,
         }
@@ -121,22 +101,6 @@ impl ModelObject {
         let view_matrix = self.camera.borrow().get_view_matrix();
         let projection_matrix = self.get_projection();
 
-        // --- GRID ---
-        let grid_model_matrix = glm::scale(&self.model_matrix, &glm::Vec3::new(1.005, 1.005, 1.005));
-        let line_uniforms = uniform!{
-            model_matrix: *grid_model_matrix.as_ref(),
-            view_matrix: *view_matrix.as_ref(),
-            perspective_matrix: *projection_matrix.as_ref(),
-        };
-        frame.draw(
-            &self.grid_buffer,
-            &glium::index::NoIndices(PrimitiveType::LinesList),
-            &self.program,
-            &line_uniforms,
-            &self.draw_parameters_grid
-        ).unwrap();
-
-        // --- MODEL PART ---
         let uniforms = uniform!{
             model_matrix: *self.model_matrix.as_ref(),
             view_matrix: *view_matrix.as_ref(),
