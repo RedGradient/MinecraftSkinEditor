@@ -100,6 +100,10 @@ impl ObjectSubclass for Window {
             let gl_area = win.imp().gl_area.get();
             win.imp().drawing_history.borrow_mut().redo(&gl_area);
         });
+
+        klass.install_action("win.about", None, move |win, _, _| {
+            win.imp().show_about();
+        });
     }
 
     fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
@@ -112,3 +116,20 @@ impl WidgetImpl for Window {}
 impl WindowImpl for Window {}
 impl ApplicationWindowImpl for Window {}
 impl AdwApplicationWindowImpl for Window {}
+
+impl Window {
+    fn show_about(&self) {
+        let about_window = adw::AboutWindow::builder()
+            .application_name("Minecraft Skin Editor")
+            .application_icon(APP_ID)
+            .version("0.1.0")
+            .website("https://github.com/RedGradient/MinecraftSkinEditor")
+            .issue_url("https://github.com/RedGradient/MinecraftSkinEditor/issues")
+            .copyright("© 2023 RedGradient")
+            .developers(vec!["RedGradient"])
+            .license_type(gtk::License::Gpl30)
+            .build();
+
+        about_window.present();
+    }
+}
