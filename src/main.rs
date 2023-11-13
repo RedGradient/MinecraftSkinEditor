@@ -1,10 +1,10 @@
 #![allow(warnings)]
 
-use std::io::Write;
 use std::ptr;
+use std::io::{Read, Write};
 
 use glium::backend::Backend;
-use gtk::CssProvider;
+use gtk::{CssProvider, gio, glib};
 use gtk::gdk::Display;
 use gtk::gdk::prelude::*;
 use gtk::glib::PropertyGet;
@@ -19,7 +19,7 @@ mod model_switcher;
 mod application;
 mod window;
 
-const APP_ID: &str = "org.redgradient.mc-skin-editor";
+pub const APP_ID: &str = "io.redgradient.MCSkinEditor";
 const RESOURCES_PATH: &str = "mcskineditor.gresource.xml";
 
 fn load_gl_function() {
@@ -65,6 +65,15 @@ fn main() {
     load_gl_function();
 
     gtk::init().expect("Failed to initialize GTK");
+
+    let resource = match gio::Resource::load("resources/mcskineditor.gresource") {
+        Ok(resource) => resource,
+        Err(error) => panic!("{}", error.message()),
+    };
+    gio::resources_register(&resource);
+
+    glib::set_application_name("Minecraft Skin Editor");
+    glib::set_program_name(Some("mc-skin-editor"));
 
     let app = application::Application::new();
     app.connect_startup(|_| load_css());
