@@ -103,9 +103,11 @@ impl Window {
         let pencil_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/pencil.png");
         let rubber_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/eraser.png");
         let color_picker_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/color_picker.png");
+        let grid_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/grid.png");
         self.imp().pencil.set_child(Some(&pencil_ico));
         self.imp().rubber.set_child(Some(&rubber_ico));
         self.imp().color_picker.set_child(Some(&color_picker_ico));
+        self.imp().grid_toggle.set_child(Some(&grid_ico));
 
         self.imp().pencil.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Pencil); }));
         self.imp().rubber.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Rubber); }));
