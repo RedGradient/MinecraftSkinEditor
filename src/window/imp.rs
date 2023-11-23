@@ -52,7 +52,6 @@ impl DrawingHistory {
 
 #[derive(CompositeTemplate, Default)]
 #[template(file = "../../resources/ui/window.ui")]
-// #[template(resource = "/io/redgradient/MCSkinEditor/window.ui")]
 pub struct Window {
     #[template_child]
     pub open_button: TemplateChild<gtk::Button>,
