@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<interface>
+    <template class="SkinDialog" parent="AdwWindow">
+        <property name="title" translatable="yes">Select skin type</property>
+        <property name="modal">True</property>
+        <property name="content">
+            <object class="GtkWindowHandle">
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">10</property>
+                        <property name="margin-top">10</property>
+                        <property name="margin-bottom">10</property>
+                        <property name="margin-start">10</property>
+                        <property name="margin-end">10</property>
+                        <child type="action">
+                            <object class="GtkButton" id="slim">
+                                <property name="label">Slim (3 px)</property>
+                            </object>
+                        </child>
+                        <child type="action">
+                            <object class="GtkButton" id="classic">
+                                <property name="label">Classic (4 px)</property>
+                            </object>
+                        </child>
+                        <child type="action">
+                            <object class="GtkButton" id="discard">
+                                <property name="label">Discard</property>
+                                <property name="action-name">skin_dialog.discard</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </property>
+    </template>
+</interface>
