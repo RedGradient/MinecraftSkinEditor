@@ -49,9 +49,14 @@ const VEC_IN_CELL: usize = 4;
 
 type ColorMap = HashMap<BodyPart, BTreeMap<CubeSide, Vec<Rgba<u8>>>>;
 
+pub enum ModelType {
+    Classic,
+    Slim
+}
+
 impl SkinParser {
-    pub fn new() -> Self {
-        SkinParser { helper_map: SkinParser::generate_helper_map() }
+    pub fn new(model_type: &ModelType) -> Self {
+        SkinParser { helper_map: SkinParser::generate_helper_map(model_type) }
     }
 
     pub fn load(&self, path: &str) -> Result<ColorMap, &str> {
@@ -137,7 +142,7 @@ impl SkinParser {
         ])
     }
 
-    fn generate_helper_map() -> HelperMap {
+    fn generate_helper_map(model_type: &ModelType) -> HelperMap {
         let mut helper_map: HelperMap = HashMap::new();
 
         let mut head_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
@@ -161,23 +166,43 @@ impl SkinParser {
         }
 
         let mut right_arm_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
-        {
-            right_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(4, 12)));
-            right_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(48, 20), Dimensions::new(4, 12)));
-            right_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(52, 20), Dimensions::new(4, 12)));
-            right_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
-            right_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(4, 4)));
-            right_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 16), Dimensions::new(4, 4)));
+        match model_type {
+            ModelType::Classic => {
+                right_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(48, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(52, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(4, 4)));
+                right_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 16), Dimensions::new(4, 4)));
+            },
+            ModelType::Slim => {
+                right_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(3, 12)));
+                right_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(47, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(51, 20), Dimensions::new(3, 12)));
+                right_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(3, 4)));
+                right_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(47, 16), Dimensions::new(3, 4)));
+            }
         }
 
         let mut left_arm_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
-        {
-            left_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(36, 52), Dimensions::new(4, 12)));
-            left_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(40, 52), Dimensions::new(4, 12)));
-            left_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(44, 52), Dimensions::new(4, 12)));
-            left_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(32, 52), Dimensions::new(4, 12)));
-            left_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(36, 48), Dimensions::new(4, 4)));
-            left_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(40, 48), Dimensions::new(4, 4)));
+        match model_type {
+            ModelType::Classic => {
+                left_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(36, 52), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(40, 52), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(44, 52), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(32, 52), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(36, 48), Dimensions::new(4, 4)));
+                left_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(40, 48), Dimensions::new(4, 4)));
+            },
+            ModelType::Slim => {
+                left_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(36, 52), Dimensions::new(3, 12)));
+                left_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(39, 52), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(43, 52), Dimensions::new(3, 12)));
+                left_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(32, 52), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(36, 48), Dimensions::new(3, 4)));
+                left_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(39, 48), Dimensions::new(3, 4)));
+            }
         }
 
         let mut right_leg_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
@@ -221,23 +246,42 @@ impl SkinParser {
         }
 
         let mut right_arm_outer_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
-        {
-            right_arm_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 36), Dimensions::new(4, 12)));
-            right_arm_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(48, 36), Dimensions::new(4, 12)));
-            right_arm_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(52, 36), Dimensions::new(4, 12)));
-            right_arm_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 36), Dimensions::new(4, 12)));
-            right_arm_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 32), Dimensions::new(4, 4)));
-            right_arm_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 32), Dimensions::new(4, 4)));
+        match model_type {
+            ModelType::Classic => {
+                right_arm_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 36), Dimensions::new(4, 12)));
+                right_arm_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(48, 36), Dimensions::new(4, 12)));
+                right_arm_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(52, 36), Dimensions::new(4, 12)));
+                right_arm_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 36), Dimensions::new(4, 12)));
+                right_arm_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 32), Dimensions::new(4, 4)));
+                right_arm_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 32), Dimensions::new(4, 4)));
+            },
+            ModelType::Slim => {
+                right_arm_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 36), Dimensions::new(3, 12)));
+                right_arm_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(47, 36), Dimensions::new(4, 12)));
+                right_arm_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(51, 36), Dimensions::new(3, 12)));
+                right_arm_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 36), Dimensions::new(4, 12)));
+                right_arm_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 32), Dimensions::new(3, 4)));
+                right_arm_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(47, 32), Dimensions::new(3, 4)));
+            }
         }
-
         let mut left_arm_outer_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
-        {
-            left_arm_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(52, 52), Dimensions::new(4, 12)));
-            left_arm_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(56, 52), Dimensions::new(4, 12)));
-            left_arm_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(60, 52), Dimensions::new(4, 12)));
-            left_arm_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(48, 52), Dimensions::new(4, 12)));
-            left_arm_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(52, 48), Dimensions::new(4, 4)));
-            left_arm_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(56, 48), Dimensions::new(4, 4)));
+        match model_type {
+            ModelType::Classic => {
+                left_arm_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(52, 52), Dimensions::new(4, 12)));
+                left_arm_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(56, 52), Dimensions::new(4, 12)));
+                left_arm_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(60, 52), Dimensions::new(4, 12)));
+                left_arm_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(48, 52), Dimensions::new(4, 12)));
+                left_arm_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(52, 48), Dimensions::new(4, 4)));
+                left_arm_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(56, 48), Dimensions::new(4, 4)));
+            },
+            ModelType::Slim => {
+                left_arm_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(52, 52), Dimensions::new(3, 12)));
+                left_arm_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(55, 52), Dimensions::new(4, 12)));
+                left_arm_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(59, 52), Dimensions::new(3, 12)));
+                left_arm_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(48, 52), Dimensions::new(4, 12)));
+                left_arm_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(52, 48), Dimensions::new(3, 4)));
+                left_arm_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(55, 48), Dimensions::new(3, 4)));
+            }
         }
 
         let mut right_leg_outer_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
