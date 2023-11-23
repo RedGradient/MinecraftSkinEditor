@@ -18,13 +18,14 @@ pub mod renderer;
 mod vertex;
 mod model_object;
 mod model;
-mod skin_parser;
+pub mod skin_parser;
 mod ray;
 pub mod hover_state;
 mod mouse_move;
 pub mod body_part;
 mod cross_info;
 mod cube_side;
+pub mod skin_dialog;
 
 glib::wrapper! {
     pub struct GliumArea(ObjectSubclass<imp::GliumGLArea>)
