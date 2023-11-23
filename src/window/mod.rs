@@ -1,18 +1,15 @@
 use std::cell::Cell;
-use std::fs::File;
 use std::rc::Rc;
 use std::time::Instant;
 
 use gtk::{EventControllerMotion, EventControllerScroll, EventControllerScrollFlags, FileChooserAction, FileChooserNative, GestureClick, gio};
 use gtk::gdk::RGBA;
-use gtk::gio::{FileIcon, Icon};
 use gtk::glib;
-use gtk::glib::{clone, ObjectExt, Propagation};
-use gtk::prelude::{ButtonExt, FileChooserExt, FileExt, GLAreaExt, GtkWindowExt, NativeDialogExtManual, ToggleButtonExt};
+use gtk::glib::{clone, IsA, ObjectExt, Propagation};
+use gtk::prelude::{ButtonExt, DialogExtManual, FileChooserExt, FileExt, GLAreaExt, GtkWindowExt, NativeDialogExtManual, ToggleButtonExt};
 use gtk::prelude::ColorChooserExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use gvdb_macros::include_gresource_from_xml;
 use libadwaita as adw;
 
 use Tool::*;
@@ -22,6 +19,8 @@ use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::GliumArea;
 use crate::glium_area::hover_state::HoverState;
 use crate::glium_area::renderer::ModelCell;
+use crate::glium_area::skin_dialog::SkinDialog;
+use crate::glium_area::skin_parser::ModelType;
 use crate::window::imp::Command;
 
 mod imp;
@@ -104,32 +103,13 @@ impl Window {
         let pencil_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/pencil.png");
         let rubber_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/eraser.png");
         let color_picker_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/color_picker.png");
-
         self.imp().pencil.set_child(Some(&pencil_ico));
-        self.imp().pencil.connect_toggled(
-            clone!(@weak self as win => move |btn| {
-                win.imp().current_tool.replace(Tool::Pencil);
-            })
-        );
-
         self.imp().rubber.set_child(Some(&rubber_ico));
-        self.imp().rubber.connect_toggled(
-            clone!(@weak self as win => move |btn| {
-                win.imp().current_tool.replace(Tool::Rubber);
-            })
-        );
-
         self.imp().color_picker.set_child(Some(&color_picker_ico));
-        self.imp().color_picker.connect_toggled(
-            clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); })
-        );
 
-        // let undo_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/ui/icons/scalable/actions/edit-undo-symbolic.svg");
-        // self.imp().undo_button.set_child(Some(&undo_ico));
-        // self.imp().undo_button.set_icon_name("edit-undo-symbolic");
-
-        // let redo_ico = gtk::Image::from_file("resources/edit-redo-symbolic.svg");
-        // self.imp().redo_button.set_child(Some(&redo_ico));
+        self.imp().pencil.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Pencil); }));
+        self.imp().rubber.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Rubber); }));
+        self.imp().color_picker.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); }));
 
         self.imp().grid_toggle.connect_toggled(
             clone!(@weak self as win => move |btn| {
@@ -265,7 +245,7 @@ impl Window {
     }
 
     fn connect_open_button(&self) {
-        let dialog = FileChooserNative::new(
+        let file_chooser_dialog = FileChooserNative::new(
             Some("Open a skin"),
             Some(self),
             FileChooserAction::Open,
@@ -273,27 +253,65 @@ impl Window {
             Some("Cancel")
         );
 
-        let win = self.clone();
-        self.imp().open_button.connect_clicked(move |btn: &gtk::Button| {
+        self.imp().open_button.connect_clicked(clone!(@weak self as win => move |btn: &gtk::Button| {
             let gl_area = win.imp().gl_area.get();
-            let win_clone = win.clone();
-            dialog.run_async(move |this, _response| {
-                let renderer = gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
-                let file = match this.file() {
-                    Some(file) => file,
-                    None => return,
+            let win_clone_2 = win.clone();
+            file_chooser_dialog.run_async(clone!(@weak win => move |this, _response| {
+                if this.file().is_none() {
+                    return;
+                }
+
+                let file = this.file().unwrap();
+                let texture_path = {
+                    let p = file.path().unwrap();
+                    let x = p.to_str().unwrap();
+                    String::from(x)
                 };
 
-                let path = file.path().unwrap();
-                let path = path.to_str().unwrap();
+                let skin_dialog = SkinDialog::new(texture_path);
+                skin_dialog.set_transient_for(Some(&win));
+                skin_dialog.set_parent(&win);
 
-                renderer.load_texture(path);
-                gl_area.queue_draw();
+                skin_dialog.imp().slim.connect_clicked(
+                    clone!(@weak win, @weak skin_dialog => move |btn| {
+                        println!("slim");
+                        let renderer = win.imp().gl_area.renderer().unwrap();
+                        let mut renderer = renderer.borrow_mut();
 
-                win_clone.imp().drawing_history.borrow_mut().clear();
-            });
-        });
+                        let texture_path = skin_dialog.imp().texture_path.borrow();
+                        let texture_path = texture_path.as_ref().unwrap().as_str();
+
+                        let model_type = ModelType::Slim;
+                        renderer.reset_model_type(&model_type);
+                        renderer.load_texture(texture_path, &model_type);
+                        win.imp().drawing_history.borrow_mut().clear();
+                        win.imp().gl_area.queue_draw();
+                        skin_dialog.destroy();
+                    })
+                );
+
+                skin_dialog.imp().classic.connect_clicked(
+                    clone!(@weak win_clone_2 as win, @weak skin_dialog => move |btn| {
+                        println!("classic");
+                        let renderer = win.imp().gl_area.renderer().unwrap();
+                        let mut renderer = renderer.borrow_mut();
+
+                        let texture_path = skin_dialog.imp().texture_path.borrow();
+                        let texture_path = texture_path.as_ref().unwrap().as_str();
+
+                        let model_type = ModelType::Classic;
+                        renderer.reset_model_type(&model_type);
+
+                        renderer.load_texture(texture_path, &model_type);
+                        win.imp().drawing_history.borrow_mut().clear();
+                        win.imp().gl_area.queue_draw();
+                        skin_dialog.destroy();
+                    })
+                );
+
+                skin_dialog.present();
+            }));
+        }));
     }
 
     fn connect_save_button(&self) {
