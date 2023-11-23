@@ -75,7 +75,7 @@
                         </child>
                         <child type="end">
                             <object class="GtkToggleButton" id="grid_toggle">
-                                <property name="label">Grid</property>
+                                <property name="tooltip_text">Grid</property>
                                 <property name="active">true</property>
                             </object>
                         </child>
