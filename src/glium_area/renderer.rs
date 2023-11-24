@@ -317,37 +317,37 @@ impl Renderer {
     }
 
     pub fn reset_model_type(&mut self, model_type: &ModelType) {
-        let (vertexes, grid) = match model_type {
-            ModelType::Classic => (cuboid_4x12x4(), grid_4x12x4()),
-            ModelType::Slim => (cuboid_3x12x4(), grid_3x12x4())
+        let (vertexes, grid, translation_x) = match model_type {
+            ModelType::Classic => (cuboid_4x12x4(), grid_4x12x4(), 0.75),
+            ModelType::Slim => (cuboid_3x12x4(), grid_3x12x4(), 0.6875)
         };
 
         let right_arm = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &vertexes,
             ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
-            &glm::Vec3::new(-0.6875, 0.25, 0.),
+            &glm::Vec3::new(-translation_x, 0.25, 0.),
             &INNER_SCALE,
         );
         let left_arm = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &vertexes,
             ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
-            &glm::Vec3::new(0.6875, 0.25, 0.),
+            &glm::Vec3::new(translation_x, 0.25, 0.),
             &INNER_SCALE,
         );
         let right_arm_outer = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &vertexes,
             ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
-            &glm::Vec3::new(-0.6875, 0.25, 0.),
+            &glm::Vec3::new(-translation_x, 0.25, 0.),
             &OUTER_SCALE,
         );
         let left_arm_outer = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &vertexes,
             ModelIndexType::TrianglesList(arm_fn::arm_indexes()),
-            &glm::Vec3::new(0.6875, 0.25, 0.),
+            &glm::Vec3::new(translation_x, 0.25, 0.),
             &OUTER_SCALE,
         );
 
@@ -355,39 +355,30 @@ impl Renderer {
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &grid,
             ModelIndexType::LinesList,
-            &glm::Vec3::new(-0.6875, 0.25, 0.),
+            &glm::Vec3::new(-translation_x, 0.25, 0.),
             &INNER_SCALE.scale(GRID_SCALE),
         );
         let left_arm_grid = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &grid,
             ModelIndexType::LinesList,
-            &glm::Vec3::new(0.6875, 0.25, 0.),
+            &glm::Vec3::new(translation_x, 0.25, 0.),
             &INNER_SCALE.scale(GRID_SCALE),
         );
         let right_arm_grid_outer = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &grid,
             ModelIndexType::LinesList,
-            &glm::Vec3::new(-0.6875, 0.25, 0.),
+            &glm::Vec3::new(-translation_x, 0.25, 0.),
             &OUTER_SCALE.scale(GRID_SCALE),
         );
         let left_arm_grid_outer = ModelObject::new(
             self.context.clone(), self.program.clone(), self.camera.clone(),
             &grid,
             ModelIndexType::LinesList,
-            &glm::Vec3::new(0.6875, 0.25, 0.),
+            &glm::Vec3::new(translation_x, 0.25, 0.),
             &OUTER_SCALE.scale(GRID_SCALE),
         );
-
-        // self.model_objects.remove(&BodyPart::RightArm);
-        // self.model_objects.remove(&BodyPart::LeftArm);
-        // self.model_objects.remove(&BodyPart::RightArmOuter);
-        // self.model_objects.remove(&BodyPart::LeftArmOuter);
-        // self.grid_objects.remove(&BodyPart::RightArm);
-        // self.grid_objects.remove(&BodyPart::LeftArm);
-        // self.grid_objects.remove(&BodyPart::RightArmOuter);
-        // self.grid_objects.remove(&BodyPart::LeftArmOuter);
 
         self.model_objects.insert(BodyPart::RightArm, right_arm);
         self.model_objects.insert(BodyPart::LeftArm, left_arm);
@@ -398,8 +389,6 @@ impl Renderer {
         self.grid_objects.insert(BodyPart::LeftArm, left_arm_grid);
         self.grid_objects.insert(BodyPart::RightArmOuter, right_arm_grid_outer);
         self.grid_objects.insert(BodyPart::LeftArmOuter, left_arm_grid_outer);
-
-        println!("model_objects length: {}", self.model_objects.len());
     }
 
     pub fn set_grid_show(&mut self, show: bool) {
