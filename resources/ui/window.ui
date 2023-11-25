@@ -143,7 +143,7 @@
                                         <property name="height-request">70</property>
                                         <property name="group">toggle_group</property>
                                         <property name="label">Fill</property>
-                                        <property name="sensitive">false</property>
+<!--                                        <property name="sensitive">false</property>-->
                                     </object>
                                 </child>
                             </object>

@@ -78,6 +78,8 @@ pub struct Window {
     #[template_child]
     pub color_picker: TemplateChild<gtk::ToggleButton>,
     #[template_child]
+    pub fill: TemplateChild<gtk::ToggleButton>,
+    #[template_child]
     pub gl_area: TemplateChild<GliumArea>,
     #[template_child]
     pub model_switcher: TemplateChild<ModelSwitcher>,

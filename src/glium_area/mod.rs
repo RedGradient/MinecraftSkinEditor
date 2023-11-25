@@ -24,7 +24,7 @@ pub mod hover_state;
 mod mouse_move;
 pub mod body_part;
 mod cross_info;
-mod cube_side;
+pub mod cube_side;
 pub mod skin_dialog;
 
 glib::wrapper! {
