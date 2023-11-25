@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::hash::Hash;
 use std::io::Read;
+use std::ops::Range;
 use std::rc::Rc;
 
 use glium::{Frame, Program, Surface};
@@ -14,6 +15,7 @@ use nalgebra_glm::Mat4;
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::camera::Camera;
+use crate::glium_area::cube_side::CubeSide;
 use crate::glium_area::hover_state::HoverState;
 use crate::glium_area::model::{arm_fn, body_fn, head_fn};
 use crate::glium_area::model::arm_fn::{cuboid_3x12x4, cuboid_4x12x4, grid_3x12x4, grid_4x12x4};
@@ -21,7 +23,10 @@ use crate::glium_area::model_object::{ModelIndexType, ModelObject};
 use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::{ModelType, SkinParser};
+use crate::glium_area::vertex::Vertex;
+use CubeSide::*;
 
+#[derive(Debug)]
 pub struct ModelCell {
     pub body_part: BodyPart,
     pub cell_index: usize,
@@ -44,6 +49,8 @@ pub struct Renderer {
 
     grid: bool,
     grid_objects: BTreeMap<BodyPart, ModelObject>,
+
+    model_type: ModelType
 }
 
 
@@ -313,6 +320,8 @@ impl Renderer {
 
             grid: true,
             grid_objects,
+
+            model_type: ModelType::Classic
         }
     }
 
@@ -389,6 +398,8 @@ impl Renderer {
         self.grid_objects.insert(BodyPart::LeftArm, left_arm_grid);
         self.grid_objects.insert(BodyPart::RightArmOuter, right_arm_grid_outer);
         self.grid_objects.insert(BodyPart::LeftArmOuter, left_arm_grid_outer);
+
+        self.model_type = model_type.clone();
     }
 
     pub fn set_grid_show(&mut self, show: bool) {
@@ -575,7 +586,45 @@ impl Renderer {
             }
         }
     }
-    
+
+    pub fn get_side_cells(&self, body_part: &BodyPart, cell_index: usize) -> Option<Vec<ModelCell>> {
+
+        let cell_count_per_side: [usize; 6] = match body_part {
+            Head | HeadOuter => [64, 64, 64, 64, 64, 64],
+            Torso | TorsoOuter => [96, 48, 96, 48, 32, 32],
+            RightArm | LeftArm | RightArmOuter | LeftArmOuter => match self.model_type {
+                ModelType::Slim => [36, 48, 36, 48, 12, 12],
+                ModelType::Classic => [48, 48, 48, 48, 16, 16]
+            },
+            RightLeg | LeftLeg | RightLegOuter | LeftLegOuter => [48, 48, 48, 48, 16, 16]
+        };
+
+        if cell_index >= cell_count_per_side.iter().sum() {
+            return None;
+        }
+
+        let mut range: Option<Range<usize>> = None;
+
+        let mut start = 0;
+        for count in cell_count_per_side {
+            let end = start + count;
+            if (start..end).contains(&cell_index) {
+                range.replace((start..end));
+            }
+            start = end;
+        }
+
+        let vertices: Vec<Vertex> = self.model_objects.get(&body_part)?.get_vertexes();
+
+        let result: Vec<ModelCell> = range?.map(|index| ModelCell {
+            body_part: body_part.clone(),
+            cell_index: index,
+            color: vertices[index * 4].color,
+        }).collect();
+
+        Some(result)
+    }
+
     pub fn export_texture(&self) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
         let width = 64;
         let height = 64;

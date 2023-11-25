@@ -1,5 +1,5 @@
 remove-resources-bundle:
-	rm resources/mcskineditor.gresource
+	rm -f resources/mcskineditor.gresource
 
 compile-resources:
 	glib-compile-resources resources/mcskineditor.gresource.xml --target=resources/mcskineditor.gresource --sourcedir=resources

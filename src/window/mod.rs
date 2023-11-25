@@ -15,7 +15,9 @@ use libadwaita as adw;
 use Tool::*;
 
 use crate::application::Application;
+use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
+use crate::glium_area::cube_side::CubeSide;
 use crate::glium_area::GliumArea;
 use crate::glium_area::hover_state::HoverState;
 use crate::glium_area::renderer::ModelCell;
@@ -74,7 +76,48 @@ impl Pencil {
         }
     }
 }
+struct Fill {
+    body_part: BodyPart,
+    fill_color: [f32; 4],
+    prev_colors: Vec<ModelCell>
+}
+impl Command for Fill {
+    fn execute(&self, gl_area: &GliumArea) {
+        let renderer = gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
 
+        for cell in &self.prev_colors {
+            let new_cell = ModelCell {
+                body_part: cell.body_part.clone(),
+                cell_index: cell.cell_index,
+                color: self.fill_color,
+            };
+            renderer.set_cell(&new_cell);
+        }
+
+        gl_area.queue_draw();
+    }
+
+    fn undo(&self, gl_area: &GliumArea) {
+        let renderer = gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+
+        for cell in &self.prev_colors {
+            renderer.set_cell(cell);
+        }
+
+        gl_area.queue_draw();
+    }
+}
+impl Fill {
+    pub fn new(body_part: &BodyPart, fill_color: &[f32; 4], prev_colors: Vec<ModelCell>) -> Fill {
+        Fill {
+            body_part: body_part.clone(),
+            fill_color: fill_color.clone(),
+            prev_colors
+        }
+    }
+}
 
 glib::wrapper! {
     pub struct Window(ObjectSubclass<imp::Window>)
@@ -104,14 +147,17 @@ impl Window {
         let rubber_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/eraser.png");
         let color_picker_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/color_picker.png");
         let grid_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/grid.png");
+        let fill_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/fill.png");
         self.imp().pencil.set_child(Some(&pencil_ico));
         self.imp().rubber.set_child(Some(&rubber_ico));
         self.imp().color_picker.set_child(Some(&color_picker_ico));
         self.imp().grid_toggle.set_child(Some(&grid_ico));
+        self.imp().fill.set_child(Some(&fill_ico));
 
         self.imp().pencil.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Pencil); }));
         self.imp().rubber.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Rubber); }));
         self.imp().color_picker.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); }));
+        self.imp().fill.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Fill); }));
 
         self.imp().grid_toggle.connect_toggled(
             clone!(@weak self as win => move |btn| {
@@ -362,7 +408,7 @@ impl Window {
             });
         });
     }
-    
+
     fn connect_gl_area(&self) {
         // --- CALCULATE FPS ---
         let frame_count = Rc::new(Cell::new(0));
@@ -427,7 +473,17 @@ impl Window {
                                 win.imp().pencil.set_active(true);
                             }
                         }
-                        _ => unimplemented!("This tool is unimplemented yet"),
+                        Fill => {
+                            let cells = renderer.borrow().get_side_cells(&cell.body_part, cell.cell_index).unwrap();
+
+                            let rgba = win.imp().color_button.rgba();
+                            let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
+
+                            let command = Fill::new(&cell.body_part, &new_color, cells);
+                            command.execute(gl_area);
+                            win.imp().drawing_history.borrow_mut().add_command(Box::new(command));
+                        }
+                        _ => unimplemented!("This tool is not implemented yet"),
                     }
                     renderer.borrow_mut().set_mouse_hover(Some(HoverState::OnModel));
                 } else {

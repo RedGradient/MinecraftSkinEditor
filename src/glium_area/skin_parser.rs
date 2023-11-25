@@ -49,6 +49,7 @@ const VEC_IN_CELL: usize = 4;
 
 type ColorMap = HashMap<BodyPart, BTreeMap<CubeSide, Vec<Rgba<u8>>>>;
 
+#[derive(Copy, Clone)]
 pub enum ModelType {
     Classic,
     Slim

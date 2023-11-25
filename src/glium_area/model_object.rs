@@ -136,17 +136,6 @@ impl ModelObject {
                 cell += 1;
             }
         }
-
-        // TEST specific SIDE
-        // let sides = [CubeSide::Front, CubeSide::Left, CubeSide::Back, CubeSide::Right, CubeSide::Top, CubeSide::Bottom];
-        // for side in sides {
-        //     for pixel in color_map.get(&side).unwrap() {
-        //         let pixel_f32 = ModelObject::u8_to_f32_pixel(pixel);
-        //         self.paint(cell, pixel_f32);
-        //         cell += 1;
-        //     }
-        // }
-
     }
 
     pub fn get_pixel(&self, cell: usize) -> [f32; 4] {
