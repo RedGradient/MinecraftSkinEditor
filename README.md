@@ -2,6 +2,13 @@
 
 # Minecraft Skin Editor
 
+### How to run
+```shell
+$ git clone https://github.com/RedGradient/MinecraftSkinEditor.git
+$ cd MinecraftSkinEditor
+$ make build
+```
+
 ### Known issues
 * Bad performance of drawing
 * Binary file fails immediately
