@@ -1,4 +1,5 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -12,13 +13,11 @@ use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use libadwaita as adw;
 
+use drawing_history::DrawingHistory;
 use Tool::*;
 
 use crate::application::Application;
-use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
-use crate::glium_area::cube_side::CubeSide;
-use crate::glium_area::GliumArea;
 use crate::glium_area::hover_state::HoverState;
 use crate::glium_area::renderer::ModelCell;
 use crate::glium_area::skin_dialog::SkinDialog;
@@ -26,9 +25,10 @@ use crate::glium_area::skin_parser::ModelType;
 use crate::window::imp::Command;
 
 mod imp;
+mod drawing_history;
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Tool {
     Pencil,
     Rubber,
@@ -44,81 +44,6 @@ impl Default for Tool {
 }
 
 
-struct Pencil {
-    prev_cell: ModelCell,
-    new_cell: ModelCell,
-}
-impl Command for Pencil {
-    fn execute(&self, gl_area: &GliumArea) {
-        let renderer = gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-        renderer.set_cell(&self.new_cell);
-        gl_area.queue_draw();
-    }
-    fn undo(&self, gl_area: &GliumArea) {
-        let renderer = gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-        renderer.set_cell(&self.prev_cell);
-        gl_area.queue_draw();
-    }
-}
-impl Pencil {
-    pub fn new(target_cell: ModelCell, new_color: [f32; 4]) -> Pencil {
-        let new_cell = ModelCell {
-            body_part: target_cell.body_part.clone(),
-            cell_index: target_cell.cell_index,
-            color: new_color
-        };
-
-        Pencil {
-            prev_cell: target_cell,
-            new_cell
-        }
-    }
-}
-struct Fill {
-    body_part: BodyPart,
-    fill_color: [f32; 4],
-    prev_colors: Vec<ModelCell>
-}
-impl Command for Fill {
-    fn execute(&self, gl_area: &GliumArea) {
-        let renderer = gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-
-        for cell in &self.prev_colors {
-            let new_cell = ModelCell {
-                body_part: cell.body_part.clone(),
-                cell_index: cell.cell_index,
-                color: self.fill_color,
-            };
-            renderer.set_cell(&new_cell);
-        }
-
-        gl_area.queue_draw();
-    }
-
-    fn undo(&self, gl_area: &GliumArea) {
-        let renderer = gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-
-        for cell in &self.prev_colors {
-            renderer.set_cell(cell);
-        }
-
-        gl_area.queue_draw();
-    }
-}
-impl Fill {
-    pub fn new(body_part: &BodyPart, fill_color: &[f32; 4], prev_colors: Vec<ModelCell>) -> Fill {
-        Fill {
-            body_part: body_part.clone(),
-            fill_color: fill_color.clone(),
-            prev_colors
-        }
-    }
-}
-
 glib::wrapper! {
     pub struct Window(ObjectSubclass<imp::Window>)
         @extends gtk::Widget, gtk::Window, gtk::ApplicationWindow, adw::ApplicationWindow,
@@ -131,6 +56,8 @@ impl Window {
             .property("application", app)
             .build();
 
+        let gl_area = win.imp().gl_area.get();
+        win.imp().drawing_history.replace(Some(RefCell::new(DrawingHistory::new(gl_area))));
         win.connect_signals();
 
         win
@@ -332,7 +259,7 @@ impl Window {
                         let model_type = ModelType::Slim;
                         renderer.reset_model_type(&model_type);
                         renderer.load_texture(texture_path, &model_type);
-                        win.imp().drawing_history.borrow_mut().clear();
+                        win.imp().drawing_history.take().unwrap().borrow_mut().clear();
                         win.imp().gl_area.queue_draw();
                         skin_dialog.destroy();
                     })
@@ -351,7 +278,7 @@ impl Window {
                         renderer.reset_model_type(&model_type);
 
                         renderer.load_texture(texture_path, &model_type);
-                        win.imp().drawing_history.borrow_mut().clear();
+                        win.imp().drawing_history.take().unwrap().borrow_mut().clear();
                         win.imp().gl_area.queue_draw();
                         skin_dialog.destroy();
                     })
@@ -449,9 +376,9 @@ impl Window {
                                 cell_index: cell.cell_index,
                                 color: cell.color
                             };
-                            let command = Pencil::new(target_cell, new_color);
-                            command.execute(gl_area);
-                            win.imp().drawing_history.borrow_mut().add_command(Box::new(command));
+                            let command = Command::pencil(target_cell, new_color);
+                            // command.execute(gl_area);
+                            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
                         },
                         Rubber => {
                             let new_color = [0.0, 0.0, 0.0, 0.0];
@@ -460,9 +387,9 @@ impl Window {
                                 cell_index: cell.cell_index,
                                 color: cell.color
                             };
-                            let command = Pencil::new(target_cell, new_color);
-                            command.execute(gl_area);
-                            win.imp().drawing_history.borrow_mut().add_command(Box::new(command));
+                            let command = Command::pencil(target_cell, new_color);
+                            // command.execute(gl_area);
+                            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
                         },
                         ColorPicker => {
                             let clicked_cell = renderer.borrow().get_cell(x, y, true);
@@ -472,16 +399,16 @@ impl Window {
                                 win.imp().color_button.set_rgba(&rgba);
                                 win.imp().pencil.set_active(true);
                             }
-                        }
+                        },
                         Fill => {
                             let cells = renderer.borrow().get_side_cells(&cell.body_part, cell.cell_index).unwrap();
 
                             let rgba = win.imp().color_button.rgba();
                             let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
 
-                            let command = Fill::new(&cell.body_part, &new_color, cells);
-                            command.execute(gl_area);
-                            win.imp().drawing_history.borrow_mut().add_command(Box::new(command));
+                            let command = Command::fill(&cell.body_part, &new_color, cells);
+                            // command.execute(gl_area);
+                            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
                         }
                         _ => unimplemented!("This tool is not implemented yet"),
                     }

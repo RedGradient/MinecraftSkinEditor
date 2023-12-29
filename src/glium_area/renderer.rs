@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::io::Read;
 use std::ops::Range;
 use std::rc::Rc;
@@ -11,6 +11,8 @@ use glium::backend::Context;
 use image::{ImageBuffer, Rgba};
 use nalgebra_glm as glm;
 use nalgebra_glm::Mat4;
+
+use CubeSide::*;
 
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
@@ -24,9 +26,8 @@ use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::{ModelType, SkinParser};
 use crate::glium_area::vertex::Vertex;
-use CubeSide::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ModelCell {
     pub body_part: BodyPart,
     pub cell_index: usize,

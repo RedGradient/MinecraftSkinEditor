@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::hash::Hash;
 
 use gtk::{CompositeTemplate, glib, TemplateChild};
 use gtk::prelude::GtkWindowExt;
@@ -7,46 +8,47 @@ use gtk::subclass::prelude::{CompositeTemplate, CompositeTemplateInitializingExt
 use gtk::subclass::widget::WidgetClassExt;
 use libadwaita as adw;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
-use crate::APP_ID;
 
+use crate::APP_ID;
+use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::GliumArea;
+use crate::glium_area::renderer::ModelCell;
 use crate::model_switcher::ModelSwitcher;
+use crate::window::drawing_history::DrawingHistory;
 use crate::window::Tool;
 
-pub trait Command {
-    fn execute(&self, gl_area: &GliumArea);
-    fn undo(&self, gl_area: &GliumArea);
+#[derive(Debug)]
+pub enum Command {
+    Pencil { prev: ModelCell, new: ModelCell },
+    Fill { body_part: BodyPart, fill_color: [f32; 4], prev_colors: Vec<ModelCell> },
 }
+impl Command {
+    pub fn pencil(target_cell: ModelCell, new_color: [f32; 4]) -> Command {
+        let new = ModelCell {
+            body_part: target_cell.body_part.clone(),
+            cell_index: target_cell.cell_index,
+            color: new_color
+        };
 
-
-#[derive(Default)]
-pub struct DrawingHistory {
-    undo_stack: Vec<Box<dyn Command>>,
-    redo_stack: Vec<Box<dyn Command>>,
-}
-impl DrawingHistory {
-    pub fn add_command(&mut self, command: Box<dyn Command>) {
-        self.undo_stack.push(command);
-        self.redo_stack.clear();
-    }
-
-    pub fn undo(&mut self, gl_area: &GliumArea) {
-        if let Some(command) = self.undo_stack.pop() {
-            command.undo(gl_area);
-            self.redo_stack.push(command);
+        Command::Pencil {
+            prev: target_cell,
+            new
         }
     }
 
-    pub fn redo(&mut self, gl_area: &GliumArea) {
-        if let Some(command) = self.redo_stack.pop() {
-            command.execute(gl_area);
-            self.undo_stack.push(command);
+    pub fn fill(body_part: &BodyPart, fill_color: &[f32; 4], prev_colors: Vec<ModelCell>) -> Command {
+        Command::Fill {
+            body_part: body_part.clone(),
+            fill_color: fill_color.clone(),
+            prev_colors
         }
     }
 
-    pub fn clear(&mut self) {
-        self.undo_stack.clear();
-        self.redo_stack.clear();
+    pub fn execute(&self) {
+
+    }
+    pub fn undo(&self) {
+
     }
 }
 
@@ -85,7 +87,7 @@ pub struct Window {
     pub model_switcher: TemplateChild<ModelSwitcher>,
 
     pub current_tool: Cell<Tool>,
-    pub drawing_history: RefCell<DrawingHistory>,
+    pub drawing_history: RefCell<Option<RefCell<DrawingHistory>>>,
 }
 
 #[glib::object_subclass]
@@ -98,13 +100,13 @@ impl ObjectSubclass for Window {
         Self::bind_template(klass);
 
         klass.install_action("win.undo", None, move |win, _, _| {
-            let gl_area = win.imp().gl_area.get();
-            win.imp().drawing_history.borrow_mut().undo(&gl_area);
+            // let gl_area = win.imp().gl_area.get();
+            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().undo();
         });
 
         klass.install_action("win.redo", None, move |win, _, _| {
-            let gl_area = win.imp().gl_area.get();
-            win.imp().drawing_history.borrow_mut().redo(&gl_area);
+            // let gl_area = win.imp().gl_area.get();
+            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().redo();
         });
 
         klass.install_action("win.about", None, move |win, _, _| {
@@ -117,7 +119,9 @@ impl ObjectSubclass for Window {
     }
 }
 
-impl ObjectImpl for Window {}
+impl ObjectImpl for Window {
+
+}
 impl WidgetImpl for Window {}
 impl WindowImpl for Window {}
 impl ApplicationWindowImpl for Window {}
