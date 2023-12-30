@@ -16,25 +16,6 @@ impl DrawingHistory {
     }
 
     pub fn add_command(&mut self, command: Command) -> bool {
-        match &command {
-            Command::Pencil { prev, new } => {
-                if prev == new {
-                    return false
-                }
-            }
-            Command::Fill { fill_color, .. } => {
-                let new_fill_color = fill_color;
-                if !self.undo_stack.is_empty() {
-                    let last_command = self.undo_stack.last()
-                        .expect("Attempt to get last command while undo_stack is empty.");
-                    if let Command::Fill { fill_color, .. } = last_command {
-                        if new_fill_color == fill_color {
-                            return false
-                        }
-                    }
-                }
-            }
-        }
         self._execute(&command);
         self.undo_stack.push(command);
         self.redo_stack.clear();
