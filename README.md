@@ -1,7 +1,8 @@
 ![MCSkinEditor UI](resources/screenshot-1.png)
 
 # Minecraft Skin Editor
-> ![WARNING] The project is currently in ALPHA
+> ![WARNING]
+> The project is currently in ALPHA
 
 ### How to run
 ```shell
