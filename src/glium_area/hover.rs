@@ -1,5 +1,5 @@
 #[derive(Clone, Copy)]
-pub enum HoverState {
+pub enum Hover {
     OnModel,
     OnEmptyArea,
 }

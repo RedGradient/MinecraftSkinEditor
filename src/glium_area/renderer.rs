@@ -18,7 +18,7 @@ use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::camera::Camera;
 use crate::glium_area::cube_side::CubeSide;
-use crate::glium_area::hover_state::HoverState;
+use crate::glium_area::hover::Hover;
 use crate::glium_area::model::{arm_fn, body_fn, head_fn};
 use crate::glium_area::model::arm_fn::{cuboid_3x12x4, cuboid_4x12x4, grid_3x12x4, grid_4x12x4};
 use crate::glium_area::model_object::{ModelIndexType, ModelObject};
@@ -27,7 +27,7 @@ use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::{ModelType, SkinParser};
 use crate::glium_area::vertex::Vertex;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct ModelCell {
     pub body_part: BodyPart,
     pub cell_index: usize,
@@ -46,7 +46,7 @@ pub struct Renderer {
     model_objects: BTreeMap<BodyPart, ModelObject>,
     visible_objects: BTreeSet<BodyPart>,
     current_color: glm::Vec4,
-    mouse_hover: Option<HoverState>,
+    mouse_hover: Option<Hover>,
 
     grid: bool,
     grid_objects: BTreeMap<BodyPart, ModelObject>,
@@ -426,7 +426,7 @@ impl Renderer {
         shader_src
     }
 
-    pub fn get_mouse_hover(&self) -> Option<HoverState> {
+    pub fn get_mouse_hover(&self) -> Option<Hover> {
         self.mouse_hover
     }
 
@@ -476,7 +476,7 @@ impl Renderer {
     pub fn start_motion(&mut self, curr_x: f32, curr_y: f32) { self.mouse_motion = Some(MouseMove::new(curr_x, curr_y)) }
     pub fn stop_motion(&mut self) { self.mouse_motion = None; }
 
-    pub fn set_mouse_hover(&mut self, hover: Option<HoverState>) { self.mouse_hover = hover; }
+    pub fn set_mouse_hover(&mut self, hover: Option<Hover>) { self.mouse_hover = hover; }
 
     pub fn update_camera(&mut self) {
         if let Some(motion) = self.mouse_motion {
@@ -516,7 +516,7 @@ impl Renderer {
         // TODO optimization: this function should make bounds intersection check
         // for this approach we need to have bounds of every model object
 
-        if let Some(HoverState::OnEmptyArea) = self.mouse_hover {
+        if let Some(Hover::OnEmptyArea) = self.mouse_hover {
             return false;
         }
         let ray = self.ray_to(x, y);

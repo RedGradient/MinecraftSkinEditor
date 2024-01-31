@@ -3,11 +3,11 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::time::Instant;
 
-use gtk::{EventControllerMotion, EventControllerScroll, EventControllerScrollFlags, FileChooserAction, FileChooserNative, GestureClick, gio};
+use gtk::{EventControllerMotion, EventControllerScroll, EventControllerScrollFlags, FileChooserAction, FileChooserNative, GestureClick, GestureDrag, gio};
 use gtk::gdk::RGBA;
 use gtk::glib;
-use gtk::glib::{clone, IsA, ObjectExt, Propagation};
-use gtk::prelude::{ButtonExt, DialogExtManual, FileChooserExt, FileExt, GLAreaExt, GtkWindowExt, NativeDialogExtManual, ToggleButtonExt};
+use gtk::glib::{clone, IsA, ObjectExt, Propagation, WeakRef};
+use gtk::prelude::{ButtonExt, DialogExtManual, FileChooserExt, FileExt, GestureExt, GLAreaExt, GtkWindowExt, NativeDialogExtManual, ToggleButtonExt};
 use gtk::prelude::ColorChooserExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
@@ -18,7 +18,8 @@ use Tool::*;
 
 use crate::application::Application;
 use crate::glium_area::body_part::BodyPart::*;
-use crate::glium_area::hover_state::HoverState;
+use crate::glium_area::GliumArea;
+use crate::glium_area::hover::Hover;
 use crate::glium_area::renderer::ModelCell;
 use crate::glium_area::skin_dialog::SkinDialog;
 use crate::glium_area::skin_parser::ModelType;
@@ -259,7 +260,11 @@ impl Window {
                         let model_type = ModelType::Slim;
                         renderer.reset_model_type(&model_type);
                         renderer.load_texture(texture_path, &model_type);
-                        win.imp().drawing_history.take().unwrap().borrow_mut().clear();
+                        win.imp().drawing_history.borrow()
+                            .as_ref()
+                            .expect("Drawing history is not initialized.")
+                            .borrow_mut()
+                            .clear();
                         win.imp().gl_area.queue_draw();
                         skin_dialog.destroy();
                     })
@@ -278,7 +283,11 @@ impl Window {
                         renderer.reset_model_type(&model_type);
 
                         renderer.load_texture(texture_path, &model_type);
-                        win.imp().drawing_history.take().unwrap().borrow_mut().clear();
+                        win.imp().drawing_history.borrow()
+                            .as_ref()
+                            .expect("Drawing history is not initialized.")
+                            .borrow_mut()
+                            .clear();
                         win.imp().gl_area.queue_draw();
                         skin_dialog.destroy();
                     })
@@ -356,98 +365,44 @@ impl Window {
             })
         );
 
-        // --- CLICK EVENTS ---
+        // --- CLICK ---
+        let click_handler = self.get_click_handler();
         let click = GestureClick::new();
-        // --- PRESSED ---
-        click.connect_pressed(
-            clone!(@weak self as win => move |_, _, x, y| {
-                let gl_area = &win.imp().gl_area;
-                let renderer = gl_area.renderer().unwrap();
-                let (x, y) = (x as f32, y as f32);
-
-                let cell_opt = renderer.borrow().get_cell(x, y, false);
-                if let Some(cell) = cell_opt {
-                    match win.imp().current_tool.get() {
-                        Pencil => {
-                            let rgba = win.imp().color_button.rgba();
-                            let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
-                            let target_cell = ModelCell {
-                                body_part: cell.body_part.clone(),
-                                cell_index: cell.cell_index,
-                                color: cell.color
-                            };
-                            let command = Command::pencil(target_cell, new_color);
-                            // command.execute(gl_area);
-                            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
-                        },
-                        Rubber => {
-                            let new_color = [0.0, 0.0, 0.0, 0.0];
-                            let target_cell = ModelCell {
-                                body_part: cell.body_part.clone(),
-                                cell_index: cell.cell_index,
-                                color: cell.color
-                            };
-                            let command = Command::pencil(target_cell, new_color);
-                            // command.execute(gl_area);
-                            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
-                        },
-                        ColorPicker => {
-                            let clicked_cell = renderer.borrow().get_cell(x, y, true);
-                            if let Some(cell) = clicked_cell {
-                                let color = cell.color;
-                                let rgba = RGBA::new(color[0], color[1], color[2], color[3]);
-                                win.imp().color_button.set_rgba(&rgba);
-                                win.imp().pencil.set_active(true);
-                            }
-                        },
-                        Fill => {
-                            let cells = renderer.borrow().get_side_cells(&cell.body_part, cell.cell_index).unwrap();
-
-                            let rgba = win.imp().color_button.rgba();
-                            let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
-
-                            let command = Command::fill(&cell.body_part, &new_color, cells);
-                            // command.execute(gl_area);
-                            win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
-                        }
-                        _ => unimplemented!("This tool is not implemented yet"),
-                    }
-                    renderer.borrow_mut().set_mouse_hover(Some(HoverState::OnModel));
-                } else {
-                    renderer.borrow_mut().set_mouse_hover(Some(HoverState::OnEmptyArea));
-                }
-                renderer.borrow_mut().start_motion(x, y);
-                gl_area.queue_draw();
-            })
-        );
-        // --- RELEASED ---
-        let g = self.imp().gl_area.clone();
-        click.connect_released(move |_, _, _, _| {
-            let renderer = g.renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            renderer.stop_motion();
-            renderer.set_mouse_hover(None);
+        click.connect_begin(move |gesture, seq| {
+            let point = gesture.point(seq).expect("Unable to get current point from drag gesture");
+            let (x, y) = (point.0 as f32, point.1 as f32);
+            click_handler(x, y, false);
         });
 
-        // --- MOUSE MOTION ---
-        let mv = EventControllerMotion::new();
-        let click_event = click.clone();
+        let click_handler = self.get_click_handler();
         let g = self.imp().gl_area.clone();
-        mv.connect_motion(move |_, x, y| {
+        click.connect_update(move |gesture, seq| {
+            let point = gesture.point(seq).expect("Unable to get current point from drag gesture");
+            let (x, y) = (point.0 as f32, point.1 as f32);
             let renderer = g.renderer().unwrap();
+
             let mouse_hover_opt = renderer.borrow().get_mouse_hover();
+
             if let Some(mouse_hover) = mouse_hover_opt {
                 match mouse_hover {
-                    HoverState::OnModel => {
-                        click_event.emit_by_name_with_values("pressed", &[0.into(), x.into(), y.into()]);
+                    Hover::OnModel => {
+                        click_handler(x, y, true);
                     },
-                    HoverState::OnEmptyArea => {
-                        renderer.borrow_mut().mouse_move(x as f32, y as f32);
+                    Hover::OnEmptyArea => {
+                        renderer.borrow_mut().mouse_move(x, y);
                         renderer.borrow_mut().update_camera();
                     },
                 }
                 g.queue_draw();
             }
+        });
+
+        let g = self.imp().gl_area.clone();
+        click.connect_end(move |_, _| {
+            let renderer = g.renderer().unwrap();
+            let mut renderer = renderer.borrow_mut();
+            renderer.stop_motion();
+            renderer.set_mouse_hover(None);
         });
 
         // --- SCROLL ---
@@ -466,6 +421,83 @@ impl Window {
 
         self.imp().gl_area.add_controller(scroll);
         self.imp().gl_area.add_controller(click);
-        self.imp().gl_area.add_controller(mv);
+    }
+
+    fn get_click_handler(&self) -> impl Fn(f32, f32, bool) {
+        let win = WeakRef::new();
+        win.set(Some(self));
+
+        move |x, y, updating| {
+            let win = win.upgrade().expect("Upgrading error");
+            let gl_area: GliumArea = win.imp().gl_area.get();
+            let renderer = gl_area.renderer().unwrap();
+
+            let cell_opt = renderer.borrow().get_cell(x, y, false);
+            let cell = match cell_opt {
+                Some(value) => {
+                    if !updating {
+                        renderer.borrow_mut().set_mouse_hover(Some(Hover::OnModel));
+                    }
+                    value
+                },
+                None => {
+                    if !updating {
+                        renderer.borrow_mut().set_mouse_hover(Some(Hover::OnEmptyArea));
+                    }
+                    renderer.borrow_mut().start_motion(x, y);
+                    return
+                }
+            };
+
+            match win.imp().current_tool.get() {
+                Pencil => {
+                    let rgba = win.imp().color_button.rgba();
+                    let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
+                    let target_cell = ModelCell {
+                        body_part: cell.body_part.clone(),
+                        cell_index: cell.cell_index,
+                        color: cell.color
+                    };
+                    if target_cell.color != new_color {
+                        let command = Command::pencil(target_cell, new_color);
+                        win.imp().drawing_history.borrow()
+                            .as_ref()
+                            .expect("Drawing history is not initialized.")
+                            .borrow_mut()
+                            .add_command(command);
+                    }
+                },
+                Rubber => {
+                    let new_color = [0.0, 0.0, 0.0, 0.0];
+                    let target_cell = ModelCell {
+                        body_part: cell.body_part.clone(),
+                        cell_index: cell.cell_index,
+                        color: cell.color
+                    };
+                    let command = Command::pencil(target_cell, new_color);
+                    // command.execute(gl_area);
+                    win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
+                },
+                ColorPicker => {
+                    let clicked_cell = renderer.borrow().get_cell(x, y, true);
+                    if let Some(cell) = clicked_cell {
+                        let color = cell.color;
+                        let rgba = RGBA::new(color[0], color[1], color[2], color[3]);
+                        win.imp().color_button.set_rgba(&rgba);
+                        win.imp().pencil.set_active(true);
+                    }
+                },
+                Fill => {
+                    let cells = renderer.borrow().get_side_cells(&cell.body_part, cell.cell_index).unwrap();
+                    let rgba = win.imp().color_button.rgba();
+                    let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
+                    let command = Command::fill(&cell.body_part, &new_color, cells);
+                    win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().add_command(command);
+                }
+                _ => unimplemented!("This tool is not implemented yet"),
+            }
+
+            gl_area.queue_draw();
+        }
     }
 }

@@ -1,4 +1,4 @@
-#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone, Debug)]
 pub enum BodyPart {
     Head,
     Torso,
