@@ -17,7 +17,7 @@ use crate::model_switcher::ModelSwitcher;
 use crate::window::drawing_history::DrawingHistory;
 use crate::window::Tool;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Command {
     Pencil { prev: ModelCell, new: ModelCell },
     Fill { body_part: BodyPart, fill_color: [f32; 4], prev_colors: Vec<ModelCell> },
