@@ -11,8 +11,6 @@ $ make build
 ```
 
 ### Known issues
-* Bad performance of drawing
-* Binary file fails immediately
 * Artifacts on the model
-* Artifacts on the arms after opening a slim texture
+* Bad performance of drawing
 * Grid for slim model has cut edges
