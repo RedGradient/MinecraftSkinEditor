@@ -16,6 +16,9 @@
 
     <gresource prefix="/io/redgradient/MCSkinEditor/">
         <file alias="window.ui">ui/window.ui</file>
+        <file alias="fragment.glsl">shaders/fragment.glsl</file>
+        <file alias="vertex.glsl">shaders/vertex.glsl</file>
+        <file alias="style.css">css/style.css</file>
     </gresource>
 
 </gresources>

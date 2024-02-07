@@ -8,6 +8,8 @@ use std::rc::Rc;
 
 use glium::{Frame, Program, Surface};
 use glium::backend::Context;
+use gtk::{gio, glib, StringObject};
+use gtk::gio::{Resource, ResourceLookupFlags};
 use image::{ImageBuffer, Rgba};
 use nalgebra_glm as glm;
 use nalgebra_glm::Mat4;
@@ -284,8 +286,16 @@ impl Renderer {
     }
 
     pub fn new(context: Rc<glium::backend::Context>) -> Self {
-        let vertex_shader = Renderer::get_shader_source("resources/shaders/vertex.glsl");
-        let fragment_shader = Renderer::get_shader_source("resources/shaders/fragment.glsl");
+        let vertex_shader = {
+            let bytes = gio::resources_lookup_data("/io/redgradient/MCSkinEditor/vertex.glsl", ResourceLookupFlags::NONE)
+                .expect("Failed to get vertex shader");
+            String::from_utf8(bytes.to_vec()).expect("Failed to get vertex shader")
+        };
+        let fragment_shader = {
+            let bytes = gio::resources_lookup_data("/io/redgradient/MCSkinEditor/fragment.glsl", ResourceLookupFlags::NONE)
+                .expect("Failed to get fragment shader");
+            String::from_utf8(bytes.to_vec()).expect("Failed to get fragment shader")
+        };
         let program = glium::Program::from_source(
             &context,
             vertex_shader.as_str(),
@@ -417,13 +427,6 @@ impl Renderer {
                 cell_object.set_pixels(color_map);
             }
         }
-    }
-
-    fn get_shader_source(filename: &str) -> String {
-        let mut file = File::open(filename).expect("File not found");
-        let mut shader_src = String::new();
-        file.read_to_string(&mut shader_src).expect("Unable to read the file");
-        shader_src
     }
 
     pub fn get_mouse_hover(&self) -> Option<Hover> {

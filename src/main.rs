@@ -20,13 +20,12 @@ mod application;
 mod window;
 
 pub const APP_ID: &str = "io.redgradient.MCSkinEditor";
-const RESOURCES_PATH: &str = "mcskineditor.gresource.xml";
 
 fn load_gl_function() {
     // Load GL pointers from epoxy (GL context management library used by GTK).
 
     #[cfg(target_os = "macos")]
-        let library = unsafe { libloading::os::unix::Library::new("libepoxy.0.dylib") }.unwrap();
+        let library = unsafe { libloading::os::unix::Library::new("/usr/local/lib/libepoxy.0.dylib") }.unwrap();
     #[cfg(all(unix, not(target_os = "macos")))]
         let library = unsafe { libloading::os::unix::Library::new("libepoxy.so.0") }.unwrap();
     #[cfg(windows)]
@@ -66,9 +65,9 @@ fn main() {
 
     gtk::init().expect("Failed to initialize GTK");
 
-    let resource = match gio::Resource::load("resources/mcskineditor.gresource") {
-        Ok(resource) => resource,
-        Err(error) => panic!("{}", error.message()),
+    let resource = {
+        let resource_bytes = glib::Bytes::from_static(include_bytes!("../resources/mcskineditor.gresource"));
+        gio::Resource::from_data(&resource_bytes).expect("Failed to load resources")
     };
     gio::resources_register(&resource);
 
