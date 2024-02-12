@@ -3,8 +3,8 @@
 [//]: # (![MCSkinEditor UI]&#40;resources/screenshot-2.png&#41;)
 
 <p float="left">
-  <img src="resources/screenshot-1.png" width="700" />
-  <img src="resources/screenshot-2.png" width="700" /> 
+  <img src="resources/screenshot-1.png" width="400" />
+  <img src="resources/screenshot-2.png" width="400" /> 
 </p>
 
 # Minecraft Skin Editor
