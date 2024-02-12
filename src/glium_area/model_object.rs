@@ -168,25 +168,23 @@ impl ModelObject {
     pub fn cross(&self, ray: &Ray) -> Option<CrossInfo> {
         let cells: Vec<[Vertex; 4]> = self.vertexes
             .chunks(4)
-            .map(|chunk| {
-                [chunk[0], chunk[1], chunk[2], chunk[3]]
-            })
+            .map(|chunk| { [chunk[0], chunk[1], chunk[2], chunk[3]] })
             .collect();
 
-        let mut result: Vec<CrossInfo> = vec![];
+        let mut intersections: Vec<CrossInfo> = vec![];
         for (cell_index, cell) in cells.iter().enumerate() {
-            let res = self.cross_with_cell(ray, cell);
-            if let Some((distance, coords)) = res {
-                result.push(CrossInfo { cell_index: cell_index, dist: distance });
+            if let Some((dist, coords)) = self.cross_with_cell(ray, cell) {
+                intersections.push(CrossInfo { cell_index, dist });
             }
         }
 
-        result
-            .iter()
-            .min_by(|cross1, cross2| {
-                cross1.dist.total_cmp(&cross2.dist)
-            })
-            .cloned()
+        if intersections.len() == 0 {
+            return None
+        }
+        if intersections[0].dist < intersections[1].dist {
+            return Some(intersections[0])
+        }
+        Some(intersections[1])
     }
 
     fn cross_with_cell(&self, ray: &Ray, face: &[Vertex; 4]) -> Option<(f32, glm::Vec3)> {
