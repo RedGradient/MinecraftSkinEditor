@@ -1,4 +1,4 @@
-use crate::glium_area::model::{CELL_SIZE, generate_indexes, GRID_COLOR};
+use crate::glium_area::model::{CELL_SIZE, generate_indexes, GRID_COLOR, CELL_COLOR};
 use crate::glium_area::vertex::Vertex;
 
 const GRID_SIZE: f32 = 8.0;
@@ -19,16 +19,16 @@ fn body_front() -> Vec<Vertex> {
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x + CELL_SIZE, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x + CELL_SIZE, y - CELL_SIZE, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y - CELL_SIZE, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
         }
     }
 
@@ -50,16 +50,16 @@ fn body_left() -> Vec<Vertex> {
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y, z - CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y - CELL_SIZE, z - CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y - CELL_SIZE, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
         }
     }
 
@@ -81,16 +81,16 @@ fn body_back() -> Vec<Vertex> {
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x - CELL_SIZE, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x - CELL_SIZE, y - CELL_SIZE, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y - CELL_SIZE, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
         }
     }
 
@@ -112,16 +112,16 @@ fn body_right() -> Vec<Vertex> {
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y, z + CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y - CELL_SIZE, z + CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y - CELL_SIZE, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
         }
     }
 
@@ -143,16 +143,16 @@ fn body_top() -> Vec<Vertex> {
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x + CELL_SIZE, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x + CELL_SIZE, y, z + CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y, z + CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
         }
     }
 
@@ -174,16 +174,16 @@ fn body_bottom() -> Vec<Vertex> {
             // --- 4 VERTEXES ---
             vertices.push(Vertex {
                 position: [x, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x, y, z + CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x + CELL_SIZE, y, z + CELL_SIZE],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
             vertices.push(Vertex {
                 position: [x + CELL_SIZE, y, z],
-                color: [i as f32 / GRID_SIZE, j as f32 / GRID_SIZE, 0.0, 1.0]});
+                color: CELL_COLOR});
         }
     }
 
