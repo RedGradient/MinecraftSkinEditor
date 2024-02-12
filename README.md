@@ -12,5 +12,4 @@ $ make build
 
 ### Known issues
 * Artifacts on the model
-* Bad performance of drawing
 * Grid for slim model has cut edges
