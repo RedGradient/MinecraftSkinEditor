@@ -4,6 +4,7 @@ pub mod head_fn;
 
 const CELL_SIZE: f32 = 1.0 / 8.0;
 const GRID_COLOR: [f32; 4] = [0.65, 0.65, 0.65, 1.0];
+const CELL_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 0.0];
 
 pub fn generate_indexes(cells_count: usize) -> Vec<u16> {
     let mut indices = Vec::with_capacity(cells_count * 6);
