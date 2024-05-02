@@ -53,13 +53,15 @@ impl ModelObject {
         let scale_matrix = glm::scale(&glm::Mat4::identity(),scale_vector);
 
         let vertexes = vertexes.to_vec();
-        let vertex_buffer = VertexBuffer::new(&context, &vertexes).unwrap();
+        let vertex_buffer = VertexBuffer::dynamic(&context, &vertexes)
+            .expect("Cannot create vertex buffer");
 
         let mut draw_parameters: Option<DrawParameters> = None;
         let mut index_buffer: Option<IndexBuffer<u16>> = None;
         match indexes {
             TrianglesList(data) => {
-                index_buffer = Some(IndexBuffer::new(&context, PrimitiveType::TrianglesList, &data).unwrap());
+                index_buffer = Some(IndexBuffer::new(&context, PrimitiveType::TrianglesList, &data)
+                    .expect("Cannot create index buffer"));
                 draw_parameters = Some(DrawParameters {
                     blend: glium::Blend::alpha_blending(),
                     backface_culling: glium::BackfaceCullingMode::CullCounterClockwise,
@@ -124,7 +126,8 @@ impl ModelObject {
         self.vertexes.get_mut(index - 2).unwrap().color = color;
         self.vertexes.get_mut(index - 3).unwrap().color = color;
 
-        self.vertex_buffer = VertexBuffer::new(&self.context, &self.vertexes).unwrap();
+        // self.vertex_buffer = VertexBuffer::new(&self.context, &self.vertexes).unwrap();
+        self.vertex_buffer.write(&self.vertexes);
     }
 
     pub fn set_pixels(&mut self, color_map: &BTreeMap<CubeSide, Vec<Rgba<u8>>>) {
