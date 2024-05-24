@@ -117,13 +117,6 @@ mod imp {
             klass.install_action("win.about", None, move |win, _, _| {
                 win.imp().show_about();
             });
-
-            klass.install_action("win.slim", None, move |win, _, _| {
-                let renderer = win.imp().gl_area.renderer().unwrap();
-                let mut renderer = renderer.as_ref().borrow_mut();
-                renderer.reset_model_type(&ModelType::Slim);
-                println!("SLIM ACTION");
-            })
         }
 
         fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
