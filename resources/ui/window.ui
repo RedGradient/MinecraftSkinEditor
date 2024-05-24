@@ -99,6 +99,9 @@
                         </child>
                         <child type="end">
                             <object class="GtkToggleButton" id="grid_toggle">
+                                <style>
+                                    <class name="flat"/>
+                                </style>
                                 <property name="tooltip_text">Grid</property>
                                 <property name="active">true</property>
                             </object>
