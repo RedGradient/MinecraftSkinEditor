@@ -10,6 +10,9 @@
                     <object class="GtkBox">
                         <property name="orientation">horizontal</property>
                         <property name="spacing">1</property>
+                        <style>
+                            <class name="linked"/>
+                        </style>
                         <child>
                             <object class="GtkSearchEntry" id="search_skin_entry">
                                 <property name="placeholder-text">nickname</property>
