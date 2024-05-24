@@ -1,14 +1,14 @@
 #![allow(warnings)]
 
-use std::ptr;
 use std::io::{Read, Write};
+use std::path::PathBuf;
+use std::ptr;
 
 use glium::backend::Backend;
-use gtk::{CssProvider, gio, glib};
-use gtk::gdk::Display;
+use gtk::{gio, glib};
 use gtk::gdk::prelude::*;
-use gtk::glib::PropertyGet;
 use gtk::prelude::*;
+use lazy_static::lazy_static;
 use libadwaita::prelude::AdwApplicationWindowExt;
 use log::LevelFilter;
 
@@ -16,10 +16,21 @@ use crate::window::Window;
 
 mod glium_area;
 mod model_switcher;
-mod application;
 mod window;
+mod template_list;
+mod template_widget_item;
+mod skin_loader_popover;
+mod skin_dialog;
+mod application;
+mod command;
+mod utils;
 
 pub const APP_ID: &str = "io.redgradient.MCSkinEditor";
+
+lazy_static! {
+    static ref ROOT_DIR: PathBuf = dirs::home_dir().expect("Home directory not found").join("MinecraftSkinEditor");
+    static ref TEMPLATES_DIR: PathBuf = ROOT_DIR.join("templates");
+}
 
 fn load_gl_function() {
     // Load GL pointers from epoxy (GL context management library used by GTK).
@@ -40,43 +51,19 @@ fn load_gl_function() {
     });
 }
 
-fn load_css() {
-    // Load the CSS file and add it to the provider
-    let provider = CssProvider::new();
-    provider.load_from_data(include_str!("../resources/css/style.css"));
-
-    // Add the provider to the default screen
-    gtk::style_context_add_provider_for_display(
-        &Display::default().expect("Could not connect to a display."),
-        &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_USER,
-    );
+fn register_resources() {
+    let resource = {
+        let resource_bytes = glib::Bytes::from_static(include_bytes!("../resources/mcskineditor.gresource"));
+        gio::Resource::from_data(&resource_bytes).expect("Could not load gresource file")
+    };
+    gio::resources_register(&resource);
 }
 
 fn main() {
-    env_logger::Builder::new()
-        .format(|buf, record| {
-            writeln!(buf, "[{}] {}", record.level(), record.args())
-        })
-        .filter(None, LevelFilter::Off)
-        .init();
-
     load_gl_function();
-
+    register_resources();
     gtk::init().expect("Failed to initialize GTK");
-
-    let resource = {
-        let resource_bytes = glib::Bytes::from_static(include_bytes!("../resources/mcskineditor.gresource"));
-        gio::Resource::from_data(&resource_bytes).expect("Failed to load resources")
-    };
-    gio::resources_register(&resource);
-
-    glib::set_application_name("Minecraft Skin Editor");
-    glib::set_program_name(Some("mc-skin-editor"));
-
+    
     let app = application::Application::new();
-    app.connect_startup(|_| load_css());
-    app.connect_activate(|app| Window::new(app).present());
-
     app.run();
 }

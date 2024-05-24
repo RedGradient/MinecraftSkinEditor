@@ -8,14 +8,13 @@ mod imp;
 glib::wrapper! {
     pub struct ModelSwitcher(ObjectSubclass<imp::ModelSwitcher>)
         @extends gtk::Widget;
-        // @implements gtk::Accessible, gtk::Actionable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl ModelSwitcher {
     pub fn new() -> ModelSwitcher {
         Object::builder().build()
     }
-
+    
     pub fn head(&self) -> gtk::ToggleButton {
         self.imp().head.get()
     }

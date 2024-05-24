@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<interface>
+    <template class="TemplateList" parent="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">10</property>
+
+        <!--List of templates-->
+        <child>
+            <object class="GtkFlowBox" id="list">
+                <property name="orientation">vertical</property>
+                <property name="margin-top">10</property>
+                <property name="margin-bottom">10</property>
+                <property name="margin-start">10</property>
+                <property name="margin-end">10</property>
+                <property name="vexpand">true</property>
+            </object>
+        </child>
+
+        <!--Controls-->
+<!--        <child>-->
+<!--            <object class="GtkActionBar">-->
+<!--                <child type="start">-->
+<!--                    <object class="GtkButton" id="add_template_button">-->
+<!--                        <property name="label">Add</property>-->
+<!--                    </object>-->
+<!--                </child>-->
+<!--            </object>-->
+<!--        </child>-->
+
+    </template>
+</interface>

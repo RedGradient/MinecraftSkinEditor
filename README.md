@@ -1,11 +1,8 @@
-[//]: # (![MCSkinEditor UI]&#40;resources/screenshot-1.png&#41;)
+![MCSkinEditor UI](resources/screenshot-1.png)
 
-[//]: # (![MCSkinEditor UI]&#40;resources/screenshot-2.png&#41;)
-
-<p float="left">
-  <img src="resources/screenshot-1.png" width="400" />
-  <img src="resources/screenshot-2.png" width="400" /> 
-</p>
+[//]: # (<p float="left">)
+[//]: # (  <img src="resources/screenshot-1.png" width="400" /> )
+[//]: # (</p>)
 
 # Minecraft Skin Editor
 > ⚠️ **ALPHA version**
@@ -19,4 +16,8 @@ $ make build
 
 ### Known issues
 * Artifacts on the model
-* Grid for slim model has cut edges
+* macOS: GTK warnings in console: "Broken accounting of active state for widget"
+* 'Templates' and 'Reset' actions do not support undo/redo operations
+* HTTP API request to skin API is synchronous
+* Skins downloaded from the internet may fail to load because old skins with dimensions of 64x32 are not supported. The error about it will be displayed in console
+* No asking to save before closing the App

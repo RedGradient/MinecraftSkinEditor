@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<interface>
+    <template class="SkinLoaderPopover" parent="GtkPopover">
+        <child>
+            <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">10</property>
+
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">1</property>
+                        <child>
+                            <object class="GtkSearchEntry" id="search_skin_entry">
+                                <property name="placeholder-text">nickname</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkButton" id="search_skin_button">
+                                <property name="label">Search</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+
+                <child>
+                    <object class="GtkBox" id="popover_content">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">10</property>
+                    </object>
+                </child>
+
+            </object>
+        </child>
+    </template>
+</interface>

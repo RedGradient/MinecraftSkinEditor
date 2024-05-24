@@ -1,17 +1,17 @@
-use crate::glium_area::model::{CELL_SIZE, generate_indexes, GRID_COLOR, CELL_COLOR};
+use nalgebra_glm as glm;
+
+use crate::glium_area::model::{CELL_COLOR, CELL_SIZE, GRID_COLOR};
 use crate::glium_area::vertex::Vertex;
 
-const CELLS_COUNT_CLASSIC: usize = 224;
-const CELLS_COUNT_SLIM: usize = 192;
+const ARM_CLASSIC_CELLS_COUNT: usize = 224;
+const ARM_SLIM_CELLS_COUNT: usize = 192;
 
 // ---------------------
 // --- CLASSIC MODEL ---
-fn front() -> Vec<Vertex> {
+fn front(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let mut vertices = Vec::with_capacity(width * height * 4);
-
+    
     for i in 0..height {
         let y = 0.75 - i as f32 * CELL_SIZE;
         let z = 0.25;
@@ -33,17 +33,11 @@ fn front() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn left() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn left(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = 0.25;
@@ -65,17 +59,11 @@ fn left() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn back() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn back(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = 0.25 - j as f32 * CELL_SIZE;
@@ -97,14 +85,10 @@ fn back() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn right() -> Vec<Vertex> {
+fn right(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let mut vertices = Vec::with_capacity(width * height * 4);
     
     for i in 0..height {
         for j in 0..width {
@@ -127,17 +111,11 @@ fn right() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn top() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn top(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 4;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = -0.25 + j as f32 * CELL_SIZE;
@@ -159,16 +137,10 @@ fn top() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn bottom() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn bottom(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 4;
-
-    let grid_size = 8;
 
     for i in 0..height {
         for j in 0..width {
@@ -190,31 +162,28 @@ fn bottom() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
+
 pub fn cuboid_4x12x4() -> Vec<Vertex> {
-    let mut vertexes = Vec::with_capacity(CELLS_COUNT_CLASSIC);
-
-    vertexes.extend(front());
-    vertexes.extend(left());
-    vertexes.extend(back());
-    vertexes.extend(right());
-    vertexes.extend(top());
-    vertexes.extend(bottom());
-
+    let mut vertexes = Vec::with_capacity(ARM_CLASSIC_CELLS_COUNT * 4);
+    
+    front(&mut vertexes);
+    left(&mut vertexes);
+    back(&mut vertexes);
+    right(&mut vertexes);
+    top(&mut vertexes);
+    bottom(&mut vertexes);
+    
     vertexes
 }
 
 
 // ------------------
 // --- SLIM MODEL ---
-fn front_s() -> Vec<Vertex> {
+fn front_s(vertices: &mut Vec<Vertex>) {
     let width = 3;
     let height = 12;
-
-    let mut vertices = Vec::with_capacity(width * height);
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = -0.1875 + j as f32 * CELL_SIZE;
@@ -236,17 +205,11 @@ fn front_s() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn left_s() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn left_s(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = 0.1875;
@@ -268,17 +231,11 @@ fn left_s() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn back_s() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn back_s(vertices: &mut Vec<Vertex>) {
     let width = 3;
     let height = 12;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = 0.1875 - j as f32 * CELL_SIZE;
@@ -300,15 +257,11 @@ fn back_s() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn right_s() -> Vec<Vertex> {
+fn right_s(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let mut vertices = Vec::with_capacity(width * height * 4);
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = -0.1875;
@@ -330,17 +283,11 @@ fn right_s() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn top_s() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn top_s(vertices: &mut Vec<Vertex>) {
     let width = 3;
     let height = 4;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = -0.1875 + j as f32 * CELL_SIZE;
@@ -362,17 +309,11 @@ fn top_s() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
-
-    vertices
 }
-fn bottom_s() -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-
+fn bottom_s(vertices: &mut Vec<Vertex>) {
     let width = 3;
     let height = 4;
-
-    let grid_size = 8;
-
+    
     for i in 0..height {
         for j in 0..width {
             let x = -0.1875 + j as f32 * CELL_SIZE;
@@ -394,58 +335,43 @@ fn bottom_s() -> Vec<Vertex> {
                 color: CELL_COLOR});
         }
     }
+}
+
+pub fn cuboid_3x12x4() -> Vec<Vertex> {
+    let mut vertices = Vec::with_capacity(ARM_SLIM_CELLS_COUNT * 4);
+
+    front_s(&mut vertices);
+    left_s(&mut vertices);
+    back_s(&mut vertices);
+    right_s(&mut vertices);
+    top_s(&mut vertices);
+    bottom_s(&mut vertices);
 
     vertices
 }
-pub fn cuboid_3x12x4() -> Vec<Vertex> {
-    let mut vertexes = Vec::with_capacity(CELLS_COUNT_SLIM);
 
-    vertexes.extend(front_s());
-    vertexes.extend(left_s());
-    vertexes.extend(back_s());
-    vertexes.extend(right_s());
-    vertexes.extend(top_s());
-    vertexes.extend(bottom_s());
-
-    vertexes
-}
-
-
-// ---------------
-// --- INDEXES ---
-pub fn arm_indexes() -> Vec<u16> {
-    generate_indexes(CELLS_COUNT_CLASSIC)
-}
 
 // --------------------
 // --- GRID CLASSIC ---
-fn front_grid() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
+fn front_grid(vertices: &mut Vec<Vertex>) {
     let width: u32 = 4;
     let height: u32 = 12;
 
     let z = 0.25;
     for i in 0..height {
         let y = 0.75 - i as f32 * CELL_SIZE;
-        for j in 0..=width {
+        for j in 0..width {
             let x = -0.25 + j as f32 * CELL_SIZE;
-
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
-
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
-fn left_grid() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
+fn left_grid(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
     
@@ -454,21 +380,16 @@ fn left_grid() -> Vec<Vertex> {
         let y = 0.75 - i as f32 * CELL_SIZE;
         for j in 0..width {
             let z = 0.25 - j as f32 * CELL_SIZE;
-
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-        grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
     }
-
-    grid
 }
-fn back_grid() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
+fn back_grid(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
     
@@ -477,24 +398,18 @@ fn back_grid() -> Vec<Vertex> {
         let y = 0.75 - i as f32 * CELL_SIZE;
         for j in 0..width {
             let x = 0.25 - j as f32 * CELL_SIZE;
-
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
-
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
-fn right_grid() -> Vec<Vertex> {
+fn right_grid(vertices: &mut Vec<Vertex>) {
     let width = 4;
     let height = 12;
-
-    let mut grid = Vec::with_capacity(width * height * 4);
 
     let x = -0.25;
     for i in 0..height {
@@ -502,42 +417,35 @@ fn right_grid() -> Vec<Vertex> {
         for j in 0..width {
             let z = -0.25 + (j as f32) * CELL_SIZE;
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-        grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
     }
-
-    grid
 }
-fn top_grid() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width = 4;
-    let height = 4;
+fn top_grid(vertices: &mut Vec<Vertex>) {
+    let width = 4 + 1;
+    let height = 4 + 1;
 
     let y = 0.75;
     for i in 0..height {
         let z = -0.25 + i as f32 * CELL_SIZE;
         for j in 0..width {
             let x = -0.25 + j as f32 * CELL_SIZE;
-
-            grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+            // --- VERTICAL LINE ---
+            vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
         }
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        // --- HORIZONTAL LINE ---
+        vertices.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
-fn bottom_grid() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width = 4;
-    let height = 4;
+fn bottom_grid(vertices: &mut Vec<Vertex>) {
+    let width = 4 + 1;
+    let height = 4 + 1;
     
     let y = -0.75;
     for i in 0..height {
@@ -545,175 +453,148 @@ fn bottom_grid() -> Vec<Vertex> {
         for j in 0..width {
             let x = -0.25 + j as f32 * CELL_SIZE;
 
-            grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
         }
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
+
 pub fn grid_4x12x4() -> Vec<Vertex> {
-    let mut grid = Vec::new();
+    let mut vertices = Vec::new();
 
-    grid.extend(front_grid());
-    grid.extend(left_grid());
-    grid.extend(back_grid());
-    grid.extend(right_grid());
-    grid.extend(top_grid());
-    grid.extend(bottom_grid());
+    front_grid(&mut vertices);
+    left_grid(&mut vertices);
+    back_grid(&mut vertices);
+    right_grid(&mut vertices);
+    top_grid(&mut vertices);
+    bottom_grid(&mut vertices);
 
-    grid
+    vertices
 }
 
 
 // --------------------
 // --- GRID SLIM ---
-fn front_grid_s() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width: u32 = 3;
-    let height: u32 = 12;
-
+fn front_grid_s(vertices: &mut Vec<Vertex>) {
+    let width_lines_count = 3 + 1;
+    let height_lines_count = 12 + 1;
+    
     let z = 0.25;
-    for i in 0..height {
+    for i in 0..height_lines_count {
         let y = 0.75 - i as f32 * CELL_SIZE;
-        for j in 0..=width {
+        for j in 0..width_lines_count {
             let x = -0.1875 + j as f32 * CELL_SIZE;
-
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
-
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [-0.1875, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.1875, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
-fn left_grid_s() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width = 4;
-    let height = 12;
-
+fn left_grid_s(vertices: &mut Vec<Vertex>) {
+    let width_lines_count = 4 + 1;
+    let height_lines_count = 12 + 1;
+    
     let x = 0.1875;
-    for i in 0..height {
+    for i in 0..height_lines_count {
         let y = 0.75 - i as f32 * CELL_SIZE;
-        for j in 0..width {
+        for j in 0..width_lines_count {
             let z = 0.25 - j as f32 * CELL_SIZE;
-
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-        grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
     }
-
-    grid
 }
-fn back_grid_s() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width = 3;
-    let height = 12;
-
+fn back_grid_s(vertices: &mut Vec<Vertex>) {
+    let width_lines_count = 3 + 1;
+    let height_lines_count = 12 + 1;
+    
     let z = -0.25;
-    for i in 0..height {
+    for i in 0..height_lines_count {
         let y = 0.75 - i as f32 * CELL_SIZE;
-        for j in 0..width {
+        for j in 0..width_lines_count {
             let x = 0.1875 - j as f32 * CELL_SIZE;
-
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
-
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [-0.1875, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.1875, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
-fn right_grid_s() -> Vec<Vertex> {
-    let width = 4;
-    let height = 12;
-
-    let mut grid = Vec::with_capacity(width * height * 4);
-
+fn right_grid_s(vertices: &mut Vec<Vertex>) {
+    let width_lines_count = 4 + 1;
+    let height_lines_count = 12 + 1;
+    
     let x = -0.1875;
-    for i in 0..height {
+    for i in 0..height_lines_count {
         let y = 0.75 - (i as f32) * CELL_SIZE;
-        for j in 0..width {
+        for j in 0..width_lines_count {
             let z = -0.25 + (j as f32) * CELL_SIZE;
             // --- VERTICAL LINE ---
-            grid.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, -0.75, z], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, 0.75, z], color: GRID_COLOR});
         }
         // --- HORIZONTAL LINE ---
-        grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-        grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+        vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
     }
-
-    grid
 }
-fn top_grid_s() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width = 3;
-    let height = 4;
-
+fn top_grid_s(vertices: &mut Vec<Vertex>) {
+    let width_lines_count = 3 + 1;
+    let height_lines_count = 4 + 1;
+    
     let y = 0.75;
-    for i in 0..height {
+    for i in 0..height_lines_count {
         let z = -0.25 + i as f32 * CELL_SIZE;
-        for j in 0..width {
+        for j in 0..width_lines_count {
             let x = -0.1875 + j as f32 * CELL_SIZE;
-
-            grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+            // --- VERTICAL LINE ---
+            vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
         }
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        // --- HORIZONTAL LINE ---
+        vertices.push(Vertex { position: [-0.1875, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.1875, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
-fn bottom_grid_s() -> Vec<Vertex> {
-    let mut grid = Vec::new();
-
-    let width = 3;
-    let height = 4;
+fn bottom_grid_s(vertices: &mut Vec<Vertex>) {
+    let width_lines_count = 3 + 1;
+    let height_lines_count = 4 + 1;
 
     let y = -0.75;
-    for i in 0..height {
+    for i in 0..height_lines_count {
         let z = -0.25 + i as f32 * CELL_SIZE;
-        for j in 0..width {
+        for j in 0..width_lines_count {
             let x = -0.1875 + j as f32 * CELL_SIZE;
-
-            grid.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
-            grid.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
+            // --- VERTICAL LINE ---
+            vertices.push(Vertex { position: [x, y, -0.25], color: GRID_COLOR});
+            vertices.push(Vertex { position: [x, y, 0.25], color: GRID_COLOR});
         }
-        grid.push(Vertex { position: [-0.25, y, z], color: GRID_COLOR});
-        grid.push(Vertex { position: [0.25, y, z], color: GRID_COLOR});
+        // --- HORIZONTAL LINE ---
+        vertices.push(Vertex { position: [-0.1875, y, z], color: GRID_COLOR});
+        vertices.push(Vertex { position: [0.1875, y, z], color: GRID_COLOR});
     }
-
-    grid
 }
+
 pub fn grid_3x12x4() -> Vec<Vertex> {
-    let mut grid = Vec::new();
+    let mut vertices = Vec::new();
 
-    grid.extend(front_grid_s());
-    grid.extend(left_grid_s());
-    grid.extend(back_grid_s());
-    grid.extend(right_grid_s());
-    grid.extend(top_grid_s());
-    grid.extend(bottom_grid_s());
+    front_grid_s(&mut vertices);
+    left_grid_s(&mut vertices);
+    back_grid_s(&mut vertices);
+    right_grid_s(&mut vertices);
+    top_grid_s(&mut vertices);
+    bottom_grid_s(&mut vertices);
 
-    grid
+    vertices
 }

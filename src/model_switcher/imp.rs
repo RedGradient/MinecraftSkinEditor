@@ -20,14 +20,12 @@ pub struct ModelSwitcher {
     pub right_leg: TemplateChild<gtk::ToggleButton>,
     #[template_child]
     pub left_leg: TemplateChild<gtk::ToggleButton>,
-
+    #[template_child]
+    pub model_type_selector: TemplateChild<gtk::DropDown>,
     #[template_child]
     pub inner_layer_toggle: TemplateChild<gtk::ToggleButton>,
     #[template_child]
     pub outer_layer_toggle: TemplateChild<gtk::ToggleButton>,
-
-    // #[template_child]
-    // pub model_button: TemplateChild<ModelButton>,
 }
 
 #[glib::object_subclass]
@@ -38,9 +36,7 @@ impl ObjectSubclass for ModelSwitcher {
 
     fn class_init(klass: &mut Self::Class) {
         Self::bind_template(klass);
-
         klass.set_layout_manager_type::<gtk::BinLayout>();
-        // klass.set_accessible_role(gtk::AccessibleRole::Group);
     }
     fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
         obj.init_template();

@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use glium::{DrawParameters, Frame, IndexBuffer, Surface, uniform, VertexBuffer};
@@ -11,9 +10,9 @@ use nalgebra_glm::Mat4;
 
 use crate::glium_area::camera::Camera;
 use crate::glium_area::cross_info::CrossInfo;
-use crate::glium_area::cube_side::CubeSide;
-use crate::glium_area::model_object::ModelIndexType::TrianglesList;
+use crate::glium_area::model::generate_indexes;
 use crate::glium_area::ray::Ray;
+use crate::glium_area::skin_parser::CubeSideColors;
 use crate::glium_area::vertex::Vertex;
 
 pub struct ModelObject {
@@ -32,9 +31,10 @@ pub struct ModelObject {
     scale_matrix: Mat4,
 }
 
-pub enum ModelIndexType {
-    TrianglesList(Vec<u16>),
-    LinesList
+#[derive(Clone, Copy)]
+pub enum ModelObjectType {
+    Model,
+    Grid
 }
 
 impl ModelObject {
@@ -43,7 +43,7 @@ impl ModelObject {
         program: Rc<glium::Program>,
         camera: Rc<RefCell<Camera>>,
         vertexes: &[Vertex],
-        indexes: ModelIndexType,
+        model_object_type: ModelObjectType,
         translation_vector: &glm::Vec3,
         scale_vector: &glm::Vec3
     ) -> Self
@@ -51,45 +51,49 @@ impl ModelObject {
         let model_matrix = glm::Mat4::identity();
         let translation_matrix = glm::translate(&glm::Mat4::identity(), translation_vector);
         let scale_matrix = glm::scale(&glm::Mat4::identity(),scale_vector);
-
+        let index_buffer = Self::create_index_buffer(context.clone(), vertexes, model_object_type);
+        let draw_parameters = Self::create_draw_parameters(model_object_type);
         let vertexes = vertexes.to_vec();
-        let vertex_buffer = VertexBuffer::dynamic(&context, &vertexes)
-            .expect("Cannot create vertex buffer");
-
-        let mut draw_parameters: Option<DrawParameters> = None;
-        let mut index_buffer: Option<IndexBuffer<u16>> = None;
-        match indexes {
-            TrianglesList(data) => {
-                index_buffer = Some(IndexBuffer::new(&context, PrimitiveType::TrianglesList, &data)
-                    .expect("Cannot create index buffer"));
-                draw_parameters = Some(DrawParameters {
-                    blend: glium::Blend::alpha_blending(),
-                    backface_culling: glium::BackfaceCullingMode::CullCounterClockwise,
-                    ..Default::default()
-                });
-            },
-            ModelIndexType::LinesList => {
-                let mut data = Vec::with_capacity(vertexes.len());
-                for i in 0..vertexes.len() {
-                    data.push(i as u16);
-                }
-                index_buffer = Some(IndexBuffer::new(&context, PrimitiveType::LinesList, &data).unwrap());
-                draw_parameters = Some(DrawParameters {
-                    // line_width: Some(5.0),
-                    ..Default::default()
-                });
-            }
-        };
+        let vertex_buffer = VertexBuffer::dynamic(&context, &vertexes).expect("Cannot create vertex buffer");
 
         ModelObject {
             context, program, camera,
             model_matrix,
-            draw_parameters: draw_parameters.unwrap(),
+            draw_parameters,
             vertexes,
             vertex_buffer,
-            index_buffer: index_buffer.unwrap(),
+            index_buffer,
             translation_matrix,
             scale_matrix,
+        }
+    }
+
+    fn create_index_buffer(context: Rc<Context>, vertexes: &[Vertex], model_object_type: ModelObjectType) -> IndexBuffer<u16> {
+        match model_object_type {
+            ModelObjectType::Model => {
+                let data = generate_indexes(vertexes.len() / 4);
+                IndexBuffer::new(&context, PrimitiveType::TrianglesList, &data).expect("Cannot create index buffer")
+            },
+            ModelObjectType::Grid => {
+                let data: Vec<u16> = (0..vertexes.len() as u16).collect();
+                IndexBuffer::new(&context, PrimitiveType::LinesList, &data).unwrap()
+            }
+        }
+    }
+    fn create_draw_parameters(model_object_type: ModelObjectType) -> DrawParameters<'static> {
+        match model_object_type {
+            ModelObjectType::Model => {
+                DrawParameters {
+                    blend: glium::Blend::alpha_blending(),
+                    backface_culling: glium::BackfaceCullingMode::CullClockwise,
+                    ..Default::default()
+                }
+            },
+            ModelObjectType::Grid => {
+                DrawParameters {
+                    ..Default::default()
+                }
+            }
         }
     }
 
@@ -118,23 +122,31 @@ impl ModelObject {
     }
 
     pub fn paint(&mut self, cell: usize, color: [f32; 4]) {
-        let cell = cell + 1;
-        let chunk_size = 4;
-        let index = cell * chunk_size - 1;
-        self.vertexes.get_mut(index - 0).unwrap().color = color;
-        self.vertexes.get_mut(index - 1).unwrap().color = color;
-        self.vertexes.get_mut(index - 2).unwrap().color = color;
-        self.vertexes.get_mut(index - 3).unwrap().color = color;
+        let index = cell * 4;
+        self.vertexes.get_mut(index + 0).unwrap().color = color;
+        self.vertexes.get_mut(index + 1).unwrap().color = color;
+        self.vertexes.get_mut(index + 2).unwrap().color = color;
+        self.vertexes.get_mut(index + 3).unwrap().color = color;
 
-        // self.vertex_buffer = VertexBuffer::new(&self.context, &self.vertexes).unwrap();
         self.vertex_buffer.write(&self.vertexes);
     }
 
-    pub fn set_pixels(&mut self, color_map: &BTreeMap<CubeSide, Vec<Rgba<u8>>>) {
+    pub fn clear(&mut self) {
+        for vertex in self.vertexes.iter_mut() {
+            vertex.color = [0.0, 0.0, 0.0, 0.0];
+        }
+        self.vertex_buffer.write(&self.vertexes);
+    }
+    
+    pub fn set_pixels(&mut self, color_map: &CubeSideColors, ignore_transparent: bool) {
         let mut cell = 0;
         for pixels in color_map.values() {
             for pixel in pixels {
                 let pixel_f32 = ModelObject::u8_to_f32_pixel(pixel);
+                if ignore_transparent && *pixel_f32.last().unwrap() == 0.0 {
+                    cell += 1;
+                    continue;
+                }
                 self.paint(cell, pixel_f32);
                 cell += 1;
             }
@@ -143,6 +155,13 @@ impl ModelObject {
 
     pub fn get_pixel(&self, cell: usize) -> [f32; 4] {
         self.vertexes.get(4 * cell).unwrap().color
+    }
+    
+    pub fn get_pixels(&self) -> Vec<[f32; 4]> {
+        self.vertexes
+            .chunks(4)
+            .map(|chunk| chunk[0].color )
+            .collect()
     }
     
     fn u8_to_f32_pixel(pixel: &Rgba<u8>) -> [f32; 4] {
@@ -174,20 +193,20 @@ impl ModelObject {
             .map(|chunk| { [chunk[0], chunk[1], chunk[2], chunk[3]] })
             .collect();
 
-        let mut intersections: Vec<CrossInfo> = vec![];
+        let mut closest_intersection: Option<CrossInfo> = None;
         for (cell_index, cell) in cells.iter().enumerate() {
-            if let Some((dist, coords)) = self.cross_with_cell(ray, cell) {
-                intersections.push(CrossInfo { cell_index, dist });
+            if let Some((dist, _)) = self.cross_with_cell(ray, cell) {
+                if let Some(closest) = closest_intersection {
+                    if dist < closest.dist {
+                        closest_intersection = Some(CrossInfo { cell_index, dist });
+                    }
+                } else {
+                    closest_intersection = Some(CrossInfo { cell_index, dist });
+                }
             }
         }
-
-        if intersections.len() == 0 {
-            return None
-        }
-        if intersections[0].dist < intersections[1].dist {
-            return Some(intersections[0])
-        }
-        Some(intersections[1])
+        
+        closest_intersection
     }
 
     fn cross_with_cell(&self, ray: &Ray, face: &[Vertex; 4]) -> Option<(f32, glm::Vec3)> {
@@ -223,7 +242,6 @@ impl ModelObject {
         let h = ray.direction.cross(&edge2);
         let a = edge1.dot(&h);
 
-        // Проверка на параллельность луча и треугольника
         if a.abs() < 0.000001 {
             return None;
         }
@@ -241,10 +259,8 @@ impl ModelObject {
             return None;
         }
 
-        // Параметр t для точки пересечения
         let t = f * edge2.dot(&q);
 
-        // Проверяем, что пересечение находится в пределах луча
         if t > 0.0 {
             let cross_point = glm::Vec3::new(
                 ray.origin.x + t * ray.direction.x,
