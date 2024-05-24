@@ -11,12 +11,14 @@ pub fn generate_indexes(cells_count: usize) -> Vec<u16> {
 
     for i in 0..cells_count {
         let base_index = i * 4;
-        indices.push(base_index as u16);
+        
+        // clockwise
         indices.push((base_index + 1) as u16);
+        indices.push((base_index + 0) as u16);
         indices.push((base_index + 2) as u16);
         indices.push((base_index + 2) as u16);
+        indices.push((base_index + 0) as u16);
         indices.push((base_index + 3) as u16);
-        indices.push(base_index as u16);
     }
     indices
 }

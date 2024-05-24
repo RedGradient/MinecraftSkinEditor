@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use glium::Surface;
 use gtk::glib;
+use gtk::glib::Propagation;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
@@ -46,7 +47,6 @@ impl WidgetImpl for GliumGLArea {
         let renderer = Renderer::new(context);
         let renderer = Rc::new(RefCell::new(renderer));
 
-        // *self.renderer.borrow_mut() = Some(Renderer::new(context));
         *self.renderer.borrow_mut() = Some(renderer);
     }
 
@@ -57,9 +57,8 @@ impl WidgetImpl for GliumGLArea {
 }
 
 impl GLAreaImpl for GliumGLArea {
-    fn render(&self, _context: &gtk::gdk::GLContext) -> bool {
-        // self.renderer.borrow_mut().as_mut().unwrap().draw();
+    fn render(&self, _context: &gtk::gdk::GLContext) -> Propagation {
         self.renderer.borrow().as_ref().unwrap().borrow_mut().draw();
-        true
+        Propagation::Proceed
     }
 }

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<interface>
+    <template class="TemplateWidgetItem" parent="GtkButton">
+        <child>
+            <object class="GtkBox" id="widget_item_box">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">10</property>
+
+                <!--Cover-->
+                <child>
+                    <object class="GtkImage" id="cover">
+                        <property name="width-request">100</property>
+                        <property name="height-request">100</property>
+                    </object>
+                </child>
+
+                <!--Title-->
+                <child>
+                    <object class="GtkLabel" id="title">
+                        <property name="visible">false</property>
+                        <style>
+                            <class name="template-widget-item-title-color" />
+                        </style>
+                    </object>
+                </child>
+
+            </object>
+        </child>
+    </template>
+</interface>

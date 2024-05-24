@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, Rgba};
+use image::{DynamicImage, EncodableLayout, GenericImage, GenericImageView, ImageBuffer, ImageError, Rgba};
 
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::cube_side::CubeSide;
@@ -47,12 +47,18 @@ pub struct SkinParser {
 
 const VEC_IN_CELL: usize = 4;
 
-type ColorMap = HashMap<BodyPart, BTreeMap<CubeSide, Vec<Rgba<u8>>>>;
+pub type CubeSideColors = BTreeMap<CubeSide, Vec<Rgba<u8>>>;
+pub type ColorMap = HashMap<BodyPart, CubeSideColors>;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ModelType {
     Classic,
     Slim
+}
+
+pub enum TextureLoadError {
+    Image(ImageError),
+    ImageDimensionError(String)
 }
 
 impl SkinParser {
@@ -60,10 +66,20 @@ impl SkinParser {
         SkinParser { helper_map: SkinParser::generate_helper_map(model_type) }
     }
 
-    pub fn load(&self, path: &str) -> Result<ColorMap, &str> {
-        let img = image::open(path).expect("Error");
+    pub fn load_from_path(&self, path: &str) -> Result<ColorMap, TextureLoadError> {
+        let img = image::open(path).map_err(|err| TextureLoadError::Image(err))?;
+        self.load_image(img)
+    }
+
+    pub fn load_from_bytes(&self, bytes: &bytes::Bytes) -> Result<ColorMap, TextureLoadError> {
+        let img = image::load_from_memory(bytes.as_bytes()).map_err(|err| TextureLoadError::Image(err))?;
+        self.load_image(img)
+    }
+
+    fn load_image(&self, img: image::DynamicImage) -> Result<ColorMap, TextureLoadError> {
         if img.dimensions() != (64, 64) {
-            return Err("Image has wrong dimensions");
+            let message = format!("Image has wrong dimensions: ({}, {})", img.dimensions().0, img.dimensions().1);
+            return Err(TextureLoadError::ImageDimensionError(message));
         }
 
         let mut color_map: ColorMap = HashMap::new();
@@ -79,7 +95,7 @@ impl SkinParser {
 
         Ok(color_map)
     }
-
+    
     pub fn export_as(
         &self,
         body_part: &BodyPart,

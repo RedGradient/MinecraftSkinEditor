@@ -13,13 +13,13 @@
                         <property name="halign">center</property>
                         <child>
                             <object class="GtkToggleButton" id="inner_layer_toggle">
-                                <property name="label">inner</property>
+                                <property name="label">Body</property>
                                 <property name="active">true</property>
                             </object>
                         </child>
                         <child>
                             <object class="GtkToggleButton" id="outer_layer_toggle">
-                                <property name="label">outer</property>
+                                <property name="label">Outer</property>
                                 <property name="active">true</property>
                             </object>
                         </child>
@@ -38,7 +38,6 @@
 
                                 <style>
                                     <class name="square-button"/>
-                                    <class name="test"/>
                                 </style>
                             </object>
                         </child>
@@ -58,7 +57,6 @@
 
                                 <style>
                                     <class name="square-button"/>
-                                    <class name="test"/>
                                 </style>
                             </object>
                         </child>
@@ -71,7 +69,6 @@
 
                                 <style>
                                     <class name="square-button"/>
-                                    <class name="test"/>
                                 </style>
                             </object>
                         </child>
@@ -84,7 +81,6 @@
 
                                 <style>
                                     <class name="square-button"/>
-                                    <class name="test"/>
                                 </style>
                             </object>
                         </child>
@@ -117,6 +113,24 @@
                                 <style>
                                     <class name="square-button"/>
                                 </style>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox">
+                        <property name="margin-top">4</property>
+                        <property name="halign">center</property>
+                        <child>
+                            <object class="GtkDropDown" id="model_type_selector">
+                                <property name="model">
+                                    <object class="GtkStringList">
+                                        <items>
+                                            <item translatable="false">Slim (3px)</item>
+                                            <item translatable="false">Classic (4px)</item>
+                                        </items>
+                                    </object>
+                                </property>
                             </object>
                         </child>
                     </object>

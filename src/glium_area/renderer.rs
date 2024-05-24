@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::hash::{Hash, Hasher};
-use std::io::Read;
+use std::hash::Hash;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -20,14 +19,14 @@ use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::camera::Camera;
 use crate::glium_area::cube_side::CubeSide;
 use crate::glium_area::hover::Hover;
-use crate::glium_area::model;
-use crate::glium_area::model::{arm_fn, body_fn, generate_indexes, head_fn, head_grid};
+use crate::glium_area::model::{arm_fn, body_fn, head_fn};
 use crate::glium_area::model::arm_fn::{cuboid_3x12x4, cuboid_4x12x4, grid_3x12x4, grid_4x12x4};
-use crate::glium_area::model_object::{ModelIndexType, ModelObject};
+use crate::glium_area::model_object::{ModelObject, ModelObjectType};
 use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
-use crate::glium_area::skin_parser::{ModelType, SkinParser};
+use crate::glium_area::skin_parser::{ColorMap, ModelType, SkinParser, TextureLoadError};
 use crate::glium_area::vertex::Vertex;
+use crate::utils;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct ModelCell {
@@ -35,7 +34,16 @@ pub struct ModelCell {
     pub cell_index: usize,
     pub color: [f32; 4],
 }
+impl ModelCell {
+    pub fn same_cell(&self, other: ModelCell) -> bool {
+        self.body_part == other.body_part && self.cell_index == other.cell_index
+    }
+}
 
+pub enum Side {
+    Right,
+    Left
+}
 
 pub struct Renderer {
     context: Rc<Context>,
@@ -66,16 +74,16 @@ const GRID_SCALE: f32 = 1.005;
 impl Renderer {
     fn create_model_objects(context: Rc<Context>, program: Rc<Program>, camera: Rc<RefCell<Camera>>, model_type: &ModelType) -> BTreeMap<BodyPart, ModelObject> {
         let factory = ModelObjectFactory::new(context.clone(), program.clone(), camera.clone());
-        
-        let head = factory.create_body_part(&head_fn::head_vertexes(), &glm::Vec3::new(0., 1.5, 0.), &INNER_SCALE);
-        let body = factory.create_body_part(&body_fn::body_vertexes(), &glm::Vec3::new(0., 0.25, 0.), &INNER_SCALE);
+
+        let head = factory.create_body_part(&head_fn::head_vertices(), &glm::Vec3::new(0., 1.5, 0.), &INNER_SCALE);
+        let body = factory.create_body_part(&body_fn::body_vertices(), &glm::Vec3::new(0., 0.25, 0.), &INNER_SCALE);
         let right_leg = factory.create_body_part(&arm_fn::cuboid_4x12x4(), &glm::Vec3::new(-0.25, -1.25, 0.), &INNER_SCALE);
         let left_leg = factory.create_body_part(&arm_fn::cuboid_4x12x4(), &glm::Vec3::new(0.25, -1.25, 0.), &INNER_SCALE);
-        let head_outer = factory.create_body_part(&head_fn::head_vertexes(), &glm::Vec3::new(0.0, 1.5, 0.0), &OUTER_SCALE);
-        let body_outer = factory.create_body_part(&body_fn::body_vertexes(), &glm::Vec3::new(0., 0.25, 0.), &OUTER_SCALE);
+        let head_outer = factory.create_body_part(&head_fn::head_vertices(), &glm::Vec3::new(0.0, 1.5, 0.0), &OUTER_SCALE);
+        let body_outer = factory.create_body_part(&body_fn::body_vertices(), &glm::Vec3::new(0., 0.25, 0.), &OUTER_SCALE);
         let right_leg_outer = factory.create_body_part(&arm_fn::cuboid_4x12x4(), &glm::Vec3::new(-0.25, -1.25, 0.), &OUTER_SCALE);
         let left_leg_outer = factory.create_body_part(&arm_fn::cuboid_4x12x4(), &glm::Vec3::new(0.25, -1.25, 0.), &OUTER_SCALE);
-        
+
         let mut model_objects: BTreeMap<BodyPart, ModelObject> = BTreeMap::new();
         model_objects.insert(BodyPart::Head, head);
         model_objects.insert(BodyPart::Torso, body);
@@ -95,15 +103,15 @@ impl Renderer {
     fn create_grid_objects(context: Rc<Context>, program: Rc<Program>, camera: Rc<RefCell<Camera>>, model_type: &ModelType) -> BTreeMap<BodyPart, ModelObject> {
         let factory = ModelObjectFactory::new(context.clone(), program.clone(), camera.clone());
 
-        let head_grid = factory.create_grid(&model::head_grid(), &glm::Vec3::new(0., 1.5, 0.), &INNER_SCALE.scale(GRID_SCALE));
+        let head_grid = factory.create_grid(&head_fn::head_grid(), &glm::Vec3::new(0., 1.5, 0.), &INNER_SCALE.scale(GRID_SCALE));
         let body_grid = factory.create_grid(&body_fn::body_grid(), &glm::Vec3::new(0., 0.25, 0.), &INNER_SCALE.scale(GRID_SCALE));
         let right_leg_grid = factory.create_grid(&arm_fn::grid_4x12x4(), &glm::Vec3::new(-0.25, -1.25, 0.), &INNER_SCALE.scale(GRID_SCALE));
         let left_leg_grid = factory.create_grid(&arm_fn::grid_4x12x4(), &glm::Vec3::new(0.25, -1.25, 0.), &INNER_SCALE.scale(GRID_SCALE));
-        let head_outer_grid = factory.create_grid(&model::head_grid(), &glm::Vec3::new(0.0, 1.5, 0.0), &OUTER_SCALE.scale(GRID_SCALE));
+        let head_outer_grid = factory.create_grid(&head_fn::head_grid(), &glm::Vec3::new(0.0, 1.5, 0.0), &OUTER_SCALE.scale(GRID_SCALE));
         let body_outer_grid = factory.create_grid(&body_fn::body_grid(), &glm::Vec3::new(0., 0.25, 0.), &OUTER_SCALE.scale(GRID_SCALE));
         let right_leg_outer_grid = factory.create_grid(&arm_fn::grid_4x12x4(), &glm::Vec3::new(-0.25, -1.25, 0.), &OUTER_SCALE.scale(GRID_SCALE));
         let left_leg_outer_grid = factory.create_grid(&arm_fn::grid_4x12x4(), &glm::Vec3::new(0.25, -1.25, 0.), &OUTER_SCALE.scale(GRID_SCALE));
-        
+
         let mut grid_objects: BTreeMap<BodyPart, ModelObject> = BTreeMap::new();
         grid_objects.insert(BodyPart::Head, head_grid);
         grid_objects.insert(BodyPart::Torso, body_grid);
@@ -203,12 +211,12 @@ impl Renderer {
             ModelType::Classic => (grid_4x12x4(), translation_classic),
             ModelType::Slim => (grid_3x12x4(), translation_slim)
         };
-        
+
         let right_arm_grid = factory.create_grid(&vertexes, &glm::Vec3::new(-translation_x, 0.25, 0.), &INNER_SCALE.scale(GRID_SCALE));
         let left_arm_grid = factory.create_grid(&vertexes, &glm::Vec3::new(translation_x, 0.25, 0.), &INNER_SCALE.scale(GRID_SCALE));
         let right_arm_grid_outer = factory.create_grid(&vertexes, &glm::Vec3::new(-translation_x, 0.25, 0.), &OUTER_SCALE.scale(GRID_SCALE));
         let left_arm_grid_outer = factory.create_grid(&vertexes, &glm::Vec3::new(translation_x, 0.25, 0.), &OUTER_SCALE.scale(GRID_SCALE));
-        
+
         grids.insert(BodyPart::RightArm, right_arm_grid);
         grids.insert(BodyPart::LeftArm, left_arm_grid);
         grids.insert(BodyPart::RightArmOuter, right_arm_grid_outer);
@@ -217,28 +225,71 @@ impl Renderer {
         grids
     }
 
+    pub fn reset_skin(&mut self) {
+        for model_object in self.model_objects.values_mut() {
+            model_object.clear();
+        }
+    }
+
     pub fn reset_model_type(&mut self, model_type: &ModelType) {
-        let arms = Renderer::get_arms(self.context.clone(), self.program.clone(), self.camera.clone(), model_type);
-        let grids = Renderer::get_arm_grids(self.context.clone(), self.program.clone(), self.camera.clone(), model_type);
+        if self.model_type == *model_type {
+            return
+        }
+        
+        let mut arms = Renderer::get_arms(self.context.clone(), self.program.clone(), self.camera.clone(), model_type);
+        
+        let parts = [RightArm, RightArmOuter, LeftArm, LeftArmOuter];
+        for part in parts {
+            let old_arm = self.model_objects.get(&part).unwrap();
+            let new_arm = arms.get_mut(&part).unwrap();
+            match model_type {
+                ModelType::Slim => utils::classic_to_slim_arm(old_arm, new_arm, part),
+                ModelType::Classic => utils::slim_to_classic_arm(old_arm, new_arm, part)
+            }
+        }
+        
+        let arm_grids = Renderer::get_arm_grids(self.context.clone(), self.program.clone(), self.camera.clone(), model_type);
 
         self.model_objects.extend(arms);
-        self.grid_objects.extend(grids);
+        self.grid_objects.extend(arm_grids);
 
-        self.model_type = model_type.clone();
+        self.model_type = *model_type;
     }
 
     pub fn set_grid_show(&mut self, show: bool) {
         self.grid = show;
     }
 
-    pub fn load_texture(&mut self, path: &str, model_type: &ModelType) {
+    pub fn get_model_type(&self) -> ModelType {
+        self.model_type.clone()
+    }
 
+    pub fn load_texture(&mut self, path: &str, model_type: &ModelType, ignore_transparent: bool) -> Result<(), TextureLoadError> {
         let parser = SkinParser::new(model_type);
-        let color_map = parser.load(path).unwrap();
+        let color_map = parser.load_from_path(path)?;
 
+        self.load_from_color_map(color_map, ignore_transparent);
+
+        Ok(())
+    }
+
+    pub fn load_texture_from_bytes(&mut self,
+                                   bytes: &bytes::Bytes,
+                                   model_type: ModelType,
+                                   ignore_transparent: bool) -> Result<(), TextureLoadError>
+    {
+        let parser = SkinParser::new(&model_type);
+        let color_map = parser.load_from_bytes(bytes)?;
+
+        self.load_from_color_map(color_map, ignore_transparent);
+
+        Ok(())
+    }
+
+    fn load_from_color_map(&mut self, color_map: ColorMap, ignore_transparent: bool) {
         for (body_part, model_object) in self.model_objects.iter_mut() {
             if let Some(color_map) = color_map.get(body_part) {
-                model_object.set_pixels(color_map);
+                model_object.set_pixels(color_map, ignore_transparent);
             }
         }
     }
@@ -291,7 +342,7 @@ impl Renderer {
     }
 
     pub fn start_motion(&mut self, curr_x: f32, curr_y: f32) { self.mouse_motion = Some(MouseMove::new(curr_x, curr_y)) }
-    
+
     pub fn stop_motion(&mut self) { self.mouse_motion = None; }
 
     pub fn set_mouse_hover(&mut self, hover: Option<Hover>) { self.mouse_hover = hover; }
@@ -307,8 +358,7 @@ impl Renderer {
         self.camera.borrow_mut().update_distance(distance);
     }
 
-    fn screen_to_ndc(&self, screen_x: f32, screen_y: f32) -> (f32, f32)
-    {
+    fn screen_to_ndc(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
         let dim = self.context.get_framebuffer_dimensions();
         let (screen_width, screen_height) = (dim.0 as f32 / 2.0, dim.1 as f32 / 2.0);
         let ndc_x = (2.0 * screen_x / screen_width) - 1.0;
@@ -348,7 +398,7 @@ impl Renderer {
         info.is_some()
     }
 
-    /// Returns the nearest clicked cell by screen coordinates.
+    /// Returns the closest clicked cell by screen coordinates.
     pub fn get_cell(&self, x: f32, y: f32, must_be_colored: bool) -> Option<ModelCell> {
         let ray = self.ray_to(x, y);
         let mut clicked_cell: Option<(ModelCell, f32)> = None;
@@ -359,9 +409,12 @@ impl Renderer {
                 None => continue
             };
 
-            // check if the color is transparent
-            if must_be_colored && model_object.get_pixel(cross.cell_index) == [0.0, 0.0, 0.0, 0.0] {
-                continue;
+            if must_be_colored {
+                // check if the color is transparent
+                let alpha = model_object.get_pixel(cross.cell_index)[3];
+                if alpha == 0.0 {
+                    continue;
+                }
             }
 
             match clicked_cell {
@@ -485,7 +538,7 @@ impl ModelObjectFactory {
             self.program.clone(),
             self.camera.clone(),
             vertexes,
-            ModelIndexType::TrianglesList(generate_indexes(vertexes.len() / 4)),
+            ModelObjectType::Model,
             translation,
             scale
         )
@@ -497,7 +550,7 @@ impl ModelObjectFactory {
             self.program.clone(),
             self.camera.clone(),
             vertexes,
-            ModelIndexType::LinesList,
+            ModelObjectType::Grid,
             translation,
             scale
         )
