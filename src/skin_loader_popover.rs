@@ -136,11 +136,13 @@ impl SkinLoaderPopover {
                         println!("model_type is err");
                         return
                     }
-                    let result = renderer.load_texture_from_bytes(&bytes, model_type.unwrap(), false);
-                    match result {
-                        Ok(_) => println!("Texture loaded"),
-                        Err(_) => println!("Error loading texture")
+                    let load_result = renderer.load_texture_from_bytes(&bytes, model_type.unwrap(), false);
+                    if load_result.is_err() {
+                        println!("Error loading texture: {:?}", load_result.unwrap_err());
+                        return
                     }
+                    win.imp().gl_area.queue_draw();
+                    println!("Texture loaded");
                 });
                 
                 if let Some(child) = popover.imp().popover_content.last_child() {
