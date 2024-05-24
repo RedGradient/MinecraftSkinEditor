@@ -56,6 +56,7 @@ pub enum ModelType {
     Slim
 }
 
+#[derive(Debug)]
 pub enum TextureLoadError {
     Image(ImageError),
     ImageDimensionError(String)
