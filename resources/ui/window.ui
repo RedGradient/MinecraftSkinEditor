@@ -69,13 +69,15 @@
                         <child type="start">
                             <object class="GtkButton" id="undo_button">
                                 <property name="action-name">win.undo</property>
-                                <property name="icon-name">go-previous-symbolic</property>
+                                <property name="icon-name">edit-undo</property>
+                                <property name="tooltip_text">Undo</property>
                             </object>
                         </child>
                         <child type="start">
                             <object class="GtkButton" id="redo_button">
                                 <property name="action-name">win.redo</property>
-                                <property name="icon-name">go-next-symbolic</property>
+                                <property name="icon-name">edit-redo</property>
+                                <property name="tooltip_text">Redo</property>
                             </object>
                         </child>
 <!--                        <child type="end">-->
