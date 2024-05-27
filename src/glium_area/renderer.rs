@@ -2,14 +2,17 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use glium::{Frame, IndexBuffer, Program, program, Surface, uniform, VertexBuffer};
-use glium::backend::Context;
+use glium::{Frame, implement_vertex, IndexBuffer, Program, program, Surface, Texture2d, uniform, VertexBuffer};
+use glium::backend::{Context, Facade};
 use glium::index::PrimitiveType;
+use glium::texture::{RawImage2d, UncompressedFloatFormat};
+use glium::uniforms::SamplerWrapFunction;
 use gtk::gio;
 use gtk::gio::ResourceLookupFlags;
-use image::{ImageBuffer, Rgba};
+use image::{EncodableLayout, ImageBuffer, Rgba};
 use nalgebra_glm as glm;
 use nalgebra_glm::Mat4;
 
@@ -26,7 +29,7 @@ use crate::glium_area::model_object::{ModelObject, ModelObjectType};
 use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::{ColorMap, ModelType, SkinParser, TextureLoadError};
-use crate::glium_area::vertex::Vertex;
+use crate::glium_area::vertex::{Vertex, VertexTex};
 use crate::utils;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -49,9 +52,16 @@ pub enum Side {
 struct FaceIndicator {
     context: Rc<Context>,
     camera: Rc<RefCell<Camera>>,
-    vertex_buffer: VertexBuffer<Vertex>,
+    vertex_buffer: VertexBuffer<VertexTex>,
     index_buffer: IndexBuffer<u8>,
     program: Program,
+
+    front_texture: Texture2d,
+    back_texture: Texture2d,
+    right_texture: Texture2d,
+    left_texture: Texture2d,
+    top_texture: Texture2d,
+    bottom_texture: Texture2d,
 }
 
 impl FaceIndicator {
@@ -65,17 +75,30 @@ impl FaceIndicator {
             vertex_shader.as_str(),
             fragment_shader.as_str(),
             None
-        ).unwrap(); 
-        
+        ).unwrap();
+        let front_texture = FaceIndicator::load_texture(context.clone(), Front);
+        let back_texture = FaceIndicator::load_texture(context.clone(), Back);
+        let right_texture = FaceIndicator::load_texture(context.clone(), Right);
+        let left_texture = FaceIndicator::load_texture(context.clone(), Left);
+        let top_texture = FaceIndicator::load_texture(context.clone(), Top);
+        let bottom_texture = FaceIndicator::load_texture(context.clone(), Bottom);
+
         FaceIndicator {
             context,
             camera,
             vertex_buffer,
             index_buffer,
-            program
+            program,
+
+            front_texture,
+            back_texture,
+            right_texture,
+            left_texture,
+            top_texture,
+            bottom_texture,
         }
     }
-    
+
     fn get_vertex_shader() -> String {
         let source = r#"
                     #version 330 core
@@ -83,70 +106,155 @@ impl FaceIndicator {
                     uniform mat4 matrix;
 
                     layout (location = 0) in vec3 position;
-                    layout (location = 1) in vec4 color;
+                    layout (location = 1) in vec2 tex_coords;
+                    layout (location = 3) in int face_id;
 
-                    out vec4 vColor;
+                    out vec2 v_tex_coords;
+                    out vec2 v_face_id;
 
                     void main() {
                         gl_Position = matrix * vec4(position, 1.0);
-                        vColor = color;
+                        v_tex_coords = tex_coords;
+                        v_face_id = vec2(float(face_id), 0.0);
                     }
         "#;
-        
+
         String::from(source)
     }
     fn get_fragment_shader() -> String {
         let source = r#"
                     #version 330 core
 
-                    in vec4 vColor;
+                    in vec2 v_tex_coords;
+                    in vec2 v_face_id;
+
                     out vec4 color;
 
+                    uniform sampler2D front_tex;
+                    uniform sampler2D back_tex;
+                    uniform sampler2D right_tex;
+                    uniform sampler2D left_tex;
+                    uniform sampler2D top_tex;
+                    uniform sampler2D bottom_tex;
+
                     void main() {
-                        color = vec4(vColor);
+                        int id = int(v_face_id[0]);
+                        if (id == 0) {
+                            color = texture(front_tex, v_tex_coords);
+                        } else if (id == 1) {
+                            color = texture(back_tex, v_tex_coords);
+                        } else if (id == 2) {
+                            color = texture(top_tex, v_tex_coords);
+                        } else if (id == 3) {
+                            color = texture(bottom_tex, v_tex_coords);
+                        } else if (id == 4) {
+                            color = texture(right_tex, v_tex_coords);
+                        } else if (id == 5) {
+                            color = texture(left_tex, v_tex_coords);
+                        }
                     }
         "#;
-        
+
         String::from(source)
     }
-    fn get_vertices(context: Rc<Context>) -> VertexBuffer<Vertex> {
-        let vertices = vec![
-            Vertex { position: [-0.5, -0.5, -0.5], color: [0.0, 1.0, 0.0, 1.0] },
-            Vertex { position: [-0.5, 0.5, -0.5], color: [0.0, 0.0, 1.0, 1.0] },
-            Vertex { position: [0.5, 0.5, -0.5], color: [1.0, 0.0, 0.0, 1.0] },
-            Vertex { position: [0.5, -0.5, -0.5], color: [1.0, 0.0, 0.0, 1.0] },
-            Vertex { position: [-0.5, -0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
-            Vertex { position: [-0.5, 0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
-            Vertex { position: [0.5, 0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
-            Vertex { position: [0.5, -0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
-        ];
+    fn get_vertices(context: Rc<Context>) -> VertexBuffer<VertexTex> {
+        let mut vertices = vec![];
+
+        // Front face
+        vertices.push(VertexTex::new([-0.5, -0.5, 0.5], [0.0, 0.0], 0));
+        vertices.push(VertexTex::new([0.5, -0.5, 0.5], [1.0, 0.0], 0));
+        vertices.push(VertexTex::new([0.5, 0.5, 0.5], [1.0, 1.0], 0));
+        vertices.push(VertexTex::new([-0.5, 0.5, 0.5], [0.0, 1.0], 0));
+
+        // Back face
+        vertices.push(VertexTex::new([-0.5, -0.5, -0.5], [0.0, 0.0], 1));
+        vertices.push(VertexTex::new([0.5, -0.5, -0.5], [1.0, 0.0], 1));
+        vertices.push(VertexTex::new([0.5, 0.5, -0.5], [1.0, 1.0], 1));
+        vertices.push(VertexTex::new([-0.5, 0.5, -0.5], [0.0, 1.0], 1));
+
+        // Top face
+        vertices.push(VertexTex::new([-0.5, 0.5, 0.5], [0.0, 0.0], 2));
+        vertices.push(VertexTex::new([0.5, 0.5, 0.5], [1.0, 0.0], 2));
+        vertices.push(VertexTex::new([0.5, 0.5, -0.5], [1.0, 1.0], 2));
+        vertices.push(VertexTex::new([-0.5, 0.5, -0.5], [0.0, 1.0], 2));
+
+
+        // Bottom face
+        vertices.push(VertexTex::new([-0.5, -0.5, 0.5], [1.0, 1.0], 3));
+        vertices.push(VertexTex::new([0.5, -0.5, 0.5], [0.0, 1.0], 3));
+        vertices.push(VertexTex::new([0.5, -0.5, -0.5], [0.0, 0.0], 3));
+        vertices.push(VertexTex::new([-0.5, -0.5, -0.5], [1.0, 0.0], 3));
+
+        // Right face
+        vertices.push(VertexTex::new([0.5, -0.5, 0.5], [1.0, 0.0], 4));
+        vertices.push(VertexTex::new([0.5, -0.5, -0.5], [0.0, 0.0], 4));
+        vertices.push(VertexTex::new([0.5, 0.5, -0.5], [0.0, 1.0], 4));
+        vertices.push(VertexTex::new([0.5, 0.5, 0.5], [1.0, 1.0], 4));
+
+        // Left face
+        vertices.push(VertexTex::new([-0.5, -0.5, 0.5], [0.0, 0.0], 5));
+        vertices.push(VertexTex::new([-0.5, -0.5, -0.5], [1.0, 0.0], 5));
+        vertices.push(VertexTex::new([-0.5, 0.5, -0.5], [1.0, 1.0], 5));
+        vertices.push(VertexTex::new([-0.5, 0.5, 0.5], [0.0, 1.0], 5));
+        
         VertexBuffer::new(&context, &vertices).unwrap()
     }
     fn get_indices(context: Rc<Context>) -> IndexBuffer<u8> {
-        let indices = vec![
-            // front
-            0_u8, 1, 2,
-            2, 3, 0,
-            // back
-            4, 5, 6,
-            6, 7, 4,
-            // left
-            0, 4, 7,
-            7, 3, 0,
-            // right
-            1, 5, 6,
-            6, 2, 1,
-            // top
-            1, 5, 4,
-            4, 0, 1,
-            // bottom
-            2, 6, 7,
-            7, 3, 2,
-        ];
+        // let indices = vec![
+        //     // front
+        //     0_u8, 1, 2,
+        //     2, 3, 0,
+        //     // back
+        //     4, 5, 6,
+        //     6, 7, 4,
+        //     // left
+        //     0, 4, 7,
+        //     7, 3, 0,
+        //     // right
+        //     1, 5, 6,
+        //     6, 2, 1,
+        //     // top
+        //     1, 5, 4,
+        //     4, 0, 1,
+        //     // bottom
+        //     2, 6, 7,
+        //     7, 3, 2,
+        // ];
+        // IndexBuffer::new(&context, PrimitiveType::TrianglesList, &indices).unwrap()
+
+        let mut indices = Vec::new();
+
+        // Front face
+        indices.extend_from_slice(&[0_u8, 1, 2, 0, 2, 3]);
+        // Back face
+        indices.extend_from_slice(&[4, 5, 6, 4, 6, 7]);
+        // Top face
+        indices.extend_from_slice(&[8, 9, 10, 8, 10, 11]);
+        // Bottom face
+        indices.extend_from_slice(&[12, 13, 14, 12, 14, 15]);
+        // Right face
+        indices.extend_from_slice(&[16, 17, 18, 16, 18, 19]);
+        // Left face
+        indices.extend_from_slice(&[20, 21, 22, 20, 22, 23]);
+
         IndexBuffer::new(&context, PrimitiveType::TrianglesList, &indices).unwrap()
     }
-    
-    fn draw(&self, frame: &mut Frame) {
+    fn load_texture(context: Rc<Context>, side: CubeSide) -> Texture2d {
+        let path = match side {
+            Front => "resources/steve-head.png",
+            Back => "resources/steve-back.png",
+            Right => "resources/steve-right.png",
+            Left => "resources/steve-left.png",
+            Top => "resources/steve-top.png",
+            Bottom => "resources/steve-bottom.png",
+        };
+        let image = image::open(path).unwrap().to_rgba8();
+        let image_dimensions = image.dimensions();
+        let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
+        Texture2d::new(&context, image).unwrap()
+    }
+
+    fn draw(&mut self, frame: &mut Frame) {
         let (width, height) = self.context.get_framebuffer_dimensions();
         let aspect_ratio = width as f32 / height as f32;
         let ortho_height = 2.0;
@@ -156,11 +264,32 @@ impl FaceIndicator {
 
         let projection_matrix = glm::ortho(-ortho_width / 2.0, ortho_width / 2.0, -ortho_height / 2.0, ortho_height / 2.0, near, far);
         let translation_matrix = glm::translation(&glm::vec3(ortho_width / 2.0 - 0.15, ortho_height / 2.0 - 0.15, 0.0));
-        let scale_matrix = glm::scale(&Mat4::identity(), &glm::Vec3::new(0.15, 0.15, 0.15));
+        let scale_matrix = glm::scale(&Mat4::identity(), &glm::vec3(0.1, 0.1, 0.1));
         let matrix = projection_matrix * translation_matrix * self.camera.borrow().get_rotation_matrix() * scale_matrix;
-        
+
+        // Mysterious hack. Without this line, the texture is not applied to the object
+        let _ = Texture2d::empty(&self.context, 0, 0);
+
         let uniforms = uniform! {
-            matrix: *matrix.as_ref()
+            matrix: *matrix.as_ref(),
+            front_tex: self.front_texture.sampled()
+                .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+            back_tex: self.back_texture.sampled()
+                .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+            right_tex: self.right_texture.sampled()
+                .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+            left_tex: self.left_texture.sampled()
+                .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+            top_tex: self.top_texture.sampled()
+                .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+            bottom_tex: self.bottom_texture.sampled()
+                .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
         };
 
         frame.draw(
