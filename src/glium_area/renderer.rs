@@ -4,8 +4,9 @@ use std::hash::Hash;
 use std::ops::Range;
 use std::rc::Rc;
 
-use glium::{Frame, Program, Surface};
+use glium::{Frame, IndexBuffer, Program, program, Surface, uniform, VertexBuffer};
 use glium::backend::Context;
+use glium::index::PrimitiveType;
 use gtk::gio;
 use gtk::gio::ResourceLookupFlags;
 use image::{ImageBuffer, Rgba};
@@ -45,6 +46,133 @@ pub enum Side {
     Left
 }
 
+struct FaceIndicator {
+    context: Rc<Context>,
+    camera: Rc<RefCell<Camera>>,
+    vertex_buffer: VertexBuffer<Vertex>,
+    index_buffer: IndexBuffer<u8>,
+    program: Program,
+}
+
+impl FaceIndicator {
+    pub fn new(context: Rc<Context>, camera: Rc<RefCell<Camera>>) -> FaceIndicator {
+        let vertex_buffer = FaceIndicator::get_vertices(context.clone());
+        let index_buffer = FaceIndicator::get_indices(context.clone());
+        let vertex_shader = FaceIndicator::get_vertex_shader();
+        let fragment_shader = FaceIndicator::get_fragment_shader();
+        let program = Program::from_source(
+            &context,
+            vertex_shader.as_str(),
+            fragment_shader.as_str(),
+            None
+        ).unwrap(); 
+        
+        FaceIndicator {
+            context,
+            camera,
+            vertex_buffer,
+            index_buffer,
+            program
+        }
+    }
+    
+    fn get_vertex_shader() -> String {
+        let source = r#"
+                    #version 330 core
+
+                    uniform mat4 matrix;
+
+                    layout (location = 0) in vec3 position;
+                    layout (location = 1) in vec4 color;
+
+                    out vec4 vColor;
+
+                    void main() {
+                        gl_Position = matrix * vec4(position, 1.0);
+                        vColor = color;
+                    }
+        "#;
+        
+        String::from(source)
+    }
+    fn get_fragment_shader() -> String {
+        let source = r#"
+                    #version 330 core
+
+                    in vec4 vColor;
+                    out vec4 color;
+
+                    void main() {
+                        color = vec4(vColor);
+                    }
+        "#;
+        
+        String::from(source)
+    }
+    fn get_vertices(context: Rc<Context>) -> VertexBuffer<Vertex> {
+        let vertices = vec![
+            Vertex { position: [-0.5, -0.5, -0.5], color: [0.0, 1.0, 0.0, 1.0] },
+            Vertex { position: [-0.5, 0.5, -0.5], color: [0.0, 0.0, 1.0, 1.0] },
+            Vertex { position: [0.5, 0.5, -0.5], color: [1.0, 0.0, 0.0, 1.0] },
+            Vertex { position: [0.5, -0.5, -0.5], color: [1.0, 0.0, 0.0, 1.0] },
+            Vertex { position: [-0.5, -0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
+            Vertex { position: [-0.5, 0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
+            Vertex { position: [0.5, 0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
+            Vertex { position: [0.5, -0.5, 0.5], color: [1.0, 0.0, 0.0, 1.0] },
+        ];
+        VertexBuffer::new(&context, &vertices).unwrap()
+    }
+    fn get_indices(context: Rc<Context>) -> IndexBuffer<u8> {
+        let indices = vec![
+            // front
+            0_u8, 1, 2,
+            2, 3, 0,
+            // back
+            4, 5, 6,
+            6, 7, 4,
+            // left
+            0, 4, 7,
+            7, 3, 0,
+            // right
+            1, 5, 6,
+            6, 2, 1,
+            // top
+            1, 5, 4,
+            4, 0, 1,
+            // bottom
+            2, 6, 7,
+            7, 3, 2,
+        ];
+        IndexBuffer::new(&context, PrimitiveType::TrianglesList, &indices).unwrap()
+    }
+    
+    fn draw(&self, frame: &mut Frame) {
+        let (width, height) = self.context.get_framebuffer_dimensions();
+        let aspect_ratio = width as f32 / height as f32;
+        let ortho_height = 2.0;
+        let ortho_width = ortho_height * aspect_ratio;
+        let near = -10.0;
+        let far = 1000.0;
+
+        let projection_matrix = glm::ortho(-ortho_width / 2.0, ortho_width / 2.0, -ortho_height / 2.0, ortho_height / 2.0, near, far);
+        let translation_matrix = glm::translation(&glm::vec3(ortho_width / 2.0 - 0.15, ortho_height / 2.0 - 0.15, 0.0));
+        let scale_matrix = glm::scale(&Mat4::identity(), &glm::Vec3::new(0.15, 0.15, 0.15));
+        let matrix = projection_matrix * translation_matrix * self.camera.borrow().get_rotation_matrix() * scale_matrix;
+        
+        let uniforms = uniform! {
+            matrix: *matrix.as_ref()
+        };
+
+        frame.draw(
+            &self.vertex_buffer,
+            &self.index_buffer,
+            &self.program,
+            &uniforms,
+            &Default::default()
+        ).unwrap();
+    }
+}
+
 pub struct Renderer {
     context: Rc<Context>,
     program: Rc<Program>,
@@ -61,7 +189,8 @@ pub struct Renderer {
     grid: bool,
     grid_objects: BTreeMap<BodyPart, ModelObject>,
 
-    model_type: ModelType
+    model_type: ModelType,
+    face_indicator: FaceIndicator,
 }
 
 
@@ -159,6 +288,7 @@ impl Renderer {
             HeadOuter, TorsoOuter, RightArmOuter, LeftArmOuter, RightLegOuter, LeftLegOuter
         ]);
         let current_color = glm::Vec4::new(0., 0., 1., 1.);
+        let face_indicator = FaceIndicator::new(context.clone(), camera.clone());
 
         Renderer {
             context,
@@ -176,7 +306,8 @@ impl Renderer {
             grid: true,
             grid_objects,
 
-            model_type
+            model_type,
+            face_indicator,
         }
     }
 
@@ -325,6 +456,8 @@ impl Renderer {
             }
             self.model_objects.get_mut(body_part).expect("Some body part is missed").draw(&mut frame);
         }
+
+        self.face_indicator.draw(&mut frame);
 
         frame.finish().unwrap();
     }
