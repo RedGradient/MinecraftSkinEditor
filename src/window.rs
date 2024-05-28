@@ -240,6 +240,8 @@ impl Window {
                 let renderer = win.imp().gl_area.renderer().unwrap();
                 let mut renderer: RefMut<Renderer> = renderer.borrow_mut();
                 renderer.reset_skin();
+                drop(renderer);
+                win.imp().grid_toggle.set_active(true);
                 win.imp().gl_area.queue_draw();
             })
         );
