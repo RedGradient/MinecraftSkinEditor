@@ -5,8 +5,7 @@
 [//]: # (</p>)
 
 # Minecraft Skin Editor
-> [!WARNING]
-> ALPHA version
+> ⚠️ **ALPHA version**
 
 ### How to run
 ```shell
@@ -16,9 +15,10 @@ $ make build
 ```
 
 ### Known issues
+* Linux: wrong calculation of click on the GLArea
 * Artifacts on the model
 * macOS: GTK warnings in console: "Broken accounting of active state for widget"
-* 'Templates' and 'Reset' actions do not support undo/redo operations
+* 'Wardrobe' and 'Reset' actions do not support undo/redo operations
 * HTTP API request to skin API is synchronous
-* Skins downloaded from the internet may fail to load because old skins with dimensions of 64x32 are not supported. The error about it will be displayed in console
+* 64x32 skins are not supported yet
 * No asking to save before closing the App
