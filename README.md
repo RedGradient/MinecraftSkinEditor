@@ -5,7 +5,8 @@
 [//]: # (</p>)
 
 # Minecraft Skin Editor
-> ⚠️ **ALPHA version**
+> [!WARNING]
+> ALPHA version
 
 ### How to run
 ```shell
