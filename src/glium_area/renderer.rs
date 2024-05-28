@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 use glium::{Frame, implement_vertex, IndexBuffer, Program, program, Surface, Texture2d, uniform, VertexBuffer};
 use glium::backend::{Context, Facade};
+use glium::index::IndicesSource::NoIndices;
 use glium::index::PrimitiveType;
 use glium::texture::{RawImage2d, UncompressedFloatFormat};
 use glium::uniforms::SamplerWrapFunction;
@@ -66,16 +67,27 @@ struct FaceIndicator {
 
 impl FaceIndicator {
     pub fn new(context: Rc<Context>, camera: Rc<RefCell<Camera>>) -> FaceIndicator {
+        let vertex_shader = {
+            let path = "/io/redgradient/MCSkinEditor/shaders/face-indicator/vertex.glsl";
+            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
+                .expect("Failed to get vertex shader");
+            String::from_utf8(bytes.to_vec()).expect("Failed to get vertex shader")
+        };
+        let fragment_shader = {
+            let path = "/io/redgradient/MCSkinEditor/shaders/face-indicator/fragment.glsl";
+            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
+                .expect("Failed to get fragment shader");
+            String::from_utf8(bytes.to_vec()).expect("Failed to get fragment shader")
+        };
         let vertex_buffer = FaceIndicator::get_vertices(context.clone());
         let index_buffer = FaceIndicator::get_indices(context.clone());
-        let vertex_shader = FaceIndicator::get_vertex_shader();
-        let fragment_shader = FaceIndicator::get_fragment_shader();
         let program = Program::from_source(
             &context,
             vertex_shader.as_str(),
             fragment_shader.as_str(),
             None
         ).unwrap();
+        
         let front_texture = FaceIndicator::load_texture(context.clone(), Front);
         let back_texture = FaceIndicator::load_texture(context.clone(), Back);
         let right_texture = FaceIndicator::load_texture(context.clone(), Right);
@@ -99,156 +111,71 @@ impl FaceIndicator {
         }
     }
 
-    fn get_vertex_shader() -> String {
-        let source = r#"
-                    #version 330 core
-
-                    uniform mat4 matrix;
-
-                    layout (location = 0) in vec3 position;
-                    layout (location = 1) in vec2 tex_coords;
-                    layout (location = 3) in int face_id;
-
-                    out vec2 v_tex_coords;
-                    out vec2 v_face_id;
-
-                    void main() {
-                        gl_Position = matrix * vec4(position, 1.0);
-                        v_tex_coords = tex_coords;
-                        v_face_id = vec2(float(face_id), 0.0);
-                    }
-        "#;
-
-        String::from(source)
-    }
-    fn get_fragment_shader() -> String {
-        let source = r#"
-                    #version 330 core
-
-                    in vec2 v_tex_coords;
-                    in vec2 v_face_id;
-
-                    out vec4 color;
-
-                    uniform sampler2D front_tex;
-                    uniform sampler2D back_tex;
-                    uniform sampler2D right_tex;
-                    uniform sampler2D left_tex;
-                    uniform sampler2D top_tex;
-                    uniform sampler2D bottom_tex;
-
-                    void main() {
-                        int id = int(v_face_id[0]);
-                        if (id == 0) {
-                            color = texture(front_tex, v_tex_coords);
-                        } else if (id == 1) {
-                            color = texture(back_tex, v_tex_coords);
-                        } else if (id == 2) {
-                            color = texture(top_tex, v_tex_coords);
-                        } else if (id == 3) {
-                            color = texture(bottom_tex, v_tex_coords);
-                        } else if (id == 4) {
-                            color = texture(right_tex, v_tex_coords);
-                        } else if (id == 5) {
-                            color = texture(left_tex, v_tex_coords);
-                        }
-                    }
-        "#;
-
-        String::from(source)
-    }
     fn get_vertices(context: Rc<Context>) -> VertexBuffer<VertexTex> {
-        let mut vertices = vec![];
-
-        // Front face
-        vertices.push(VertexTex::new([-0.5, -0.5, 0.5], [0.0, 0.0], 0));
-        vertices.push(VertexTex::new([0.5, -0.5, 0.5], [1.0, 0.0], 0));
-        vertices.push(VertexTex::new([0.5, 0.5, 0.5], [1.0, 1.0], 0));
-        vertices.push(VertexTex::new([-0.5, 0.5, 0.5], [0.0, 1.0], 0));
-
-        // Back face
-        vertices.push(VertexTex::new([-0.5, -0.5, -0.5], [0.0, 0.0], 1));
-        vertices.push(VertexTex::new([0.5, -0.5, -0.5], [1.0, 0.0], 1));
-        vertices.push(VertexTex::new([0.5, 0.5, -0.5], [1.0, 1.0], 1));
-        vertices.push(VertexTex::new([-0.5, 0.5, -0.5], [0.0, 1.0], 1));
-
-        // Top face
-        vertices.push(VertexTex::new([-0.5, 0.5, 0.5], [0.0, 0.0], 2));
-        vertices.push(VertexTex::new([0.5, 0.5, 0.5], [1.0, 0.0], 2));
-        vertices.push(VertexTex::new([0.5, 0.5, -0.5], [1.0, 1.0], 2));
-        vertices.push(VertexTex::new([-0.5, 0.5, -0.5], [0.0, 1.0], 2));
-
-
-        // Bottom face
-        vertices.push(VertexTex::new([-0.5, -0.5, 0.5], [1.0, 1.0], 3));
-        vertices.push(VertexTex::new([0.5, -0.5, 0.5], [0.0, 1.0], 3));
-        vertices.push(VertexTex::new([0.5, -0.5, -0.5], [0.0, 0.0], 3));
-        vertices.push(VertexTex::new([-0.5, -0.5, -0.5], [1.0, 0.0], 3));
-
-        // Right face
-        vertices.push(VertexTex::new([0.5, -0.5, 0.5], [1.0, 0.0], 4));
-        vertices.push(VertexTex::new([0.5, -0.5, -0.5], [0.0, 0.0], 4));
-        vertices.push(VertexTex::new([0.5, 0.5, -0.5], [0.0, 1.0], 4));
-        vertices.push(VertexTex::new([0.5, 0.5, 0.5], [1.0, 1.0], 4));
-
-        // Left face
-        vertices.push(VertexTex::new([-0.5, -0.5, 0.5], [0.0, 0.0], 5));
-        vertices.push(VertexTex::new([-0.5, -0.5, -0.5], [1.0, 0.0], 5));
-        vertices.push(VertexTex::new([-0.5, 0.5, -0.5], [1.0, 1.0], 5));
-        vertices.push(VertexTex::new([-0.5, 0.5, 0.5], [0.0, 1.0], 5));
+        let vertices = vec![
+            // Front face
+            VertexTex::new([-0.5, -0.5, 0.5], [0.0, 0.0], 0),
+            VertexTex::new([0.5, -0.5, 0.5], [1.0, 0.0], 0),
+            VertexTex::new([0.5, 0.5, 0.5], [1.0, 1.0], 0),
+            VertexTex::new([-0.5, 0.5, 0.5], [0.0, 1.0], 0),
+    
+            // Back face
+            VertexTex::new([-0.5, -0.5, -0.5], [0.0, 0.0], 1),
+            VertexTex::new([0.5, -0.5, -0.5], [1.0, 0.0], 1),
+            VertexTex::new([0.5, 0.5, -0.5], [1.0, 1.0], 1),
+            VertexTex::new([-0.5, 0.5, -0.5], [0.0, 1.0], 1),
+    
+            // Top face
+            VertexTex::new([-0.5, 0.5, 0.5], [0.0, 0.0], 2),
+            VertexTex::new([0.5, 0.5, 0.5], [1.0, 0.0], 2),
+            VertexTex::new([0.5, 0.5, -0.5], [1.0, 1.0], 2),
+            VertexTex::new([-0.5, 0.5, -0.5], [0.0, 1.0], 2),
+    
+            // Bottom face
+            VertexTex::new([-0.5, -0.5, 0.5], [1.0, 1.0], 3),
+            VertexTex::new([0.5, -0.5, 0.5], [0.0, 1.0], 3),
+            VertexTex::new([0.5, -0.5, -0.5], [0.0, 0.0], 3),
+            VertexTex::new([-0.5, -0.5, -0.5], [1.0, 0.0], 3),
+    
+            // Right face
+            VertexTex::new([0.5, -0.5, 0.5], [1.0, 0.0], 4),
+            VertexTex::new([0.5, -0.5, -0.5], [0.0, 0.0], 4),
+            VertexTex::new([0.5, 0.5, -0.5], [0.0, 1.0], 4),
+            VertexTex::new([0.5, 0.5, 0.5], [1.0, 1.0], 4),
+    
+            // Left face
+            VertexTex::new([-0.5, -0.5, 0.5], [0.0, 0.0], 5),
+            VertexTex::new([-0.5, -0.5, -0.5], [1.0, 0.0], 5),
+            VertexTex::new([-0.5, 0.5, -0.5], [1.0, 1.0], 5),
+            VertexTex::new([-0.5, 0.5, 0.5], [0.0, 1.0], 5),
+        ];
         
         VertexBuffer::new(&context, &vertices).unwrap()
     }
     fn get_indices(context: Rc<Context>) -> IndexBuffer<u8> {
-        // let indices = vec![
-        //     // front
-        //     0_u8, 1, 2,
-        //     2, 3, 0,
-        //     // back
-        //     4, 5, 6,
-        //     6, 7, 4,
-        //     // left
-        //     0, 4, 7,
-        //     7, 3, 0,
-        //     // right
-        //     1, 5, 6,
-        //     6, 2, 1,
-        //     // top
-        //     1, 5, 4,
-        //     4, 0, 1,
-        //     // bottom
-        //     2, 6, 7,
-        //     7, 3, 2,
-        // ];
-        // IndexBuffer::new(&context, PrimitiveType::TrianglesList, &indices).unwrap()
-
-        let mut indices = Vec::new();
-
-        // Front face
-        indices.extend_from_slice(&[0_u8, 1, 2, 0, 2, 3]);
-        // Back face
-        indices.extend_from_slice(&[4, 5, 6, 4, 6, 7]);
-        // Top face
-        indices.extend_from_slice(&[8, 9, 10, 8, 10, 11]);
-        // Bottom face
-        indices.extend_from_slice(&[12, 13, 14, 12, 14, 15]);
-        // Right face
-        indices.extend_from_slice(&[16, 17, 18, 16, 18, 19]);
-        // Left face
-        indices.extend_from_slice(&[20, 21, 22, 20, 22, 23]);
-
+        let indices: Vec<u8> = vec![
+            0, 1, 2, 0, 2, 3,       // front
+            4, 5, 6, 4, 6, 7,       // back
+            8, 9, 10, 8, 10, 11,    // top
+            12, 13, 14, 12, 14, 15, // bottom
+            16, 17, 18, 16, 18, 19, // right
+            20, 21, 22, 20, 22, 23, // left
+        ];
+        
         IndexBuffer::new(&context, PrimitiveType::TrianglesList, &indices).unwrap()
     }
     fn load_texture(context: Rc<Context>, side: CubeSide) -> Texture2d {
         let path = match side {
-            Front => "resources/steve-head.png",
-            Back => "resources/steve-back.png",
-            Right => "resources/steve-right.png",
-            Left => "resources/steve-left.png",
-            Top => "resources/steve-top.png",
-            Bottom => "resources/steve-bottom.png",
+            Front =>  "/io/redgradient/MCSkinEditor/steve-front.png",
+            Back =>   "/io/redgradient/MCSkinEditor/steve-back.png",
+            Right =>  "/io/redgradient/MCSkinEditor/steve-right.png",
+            Left =>   "/io/redgradient/MCSkinEditor/steve-left.png",
+            Top =>    "/io/redgradient/MCSkinEditor/steve-top.png",
+            Bottom => "/io/redgradient/MCSkinEditor/steve-bottom.png",
         };
-        let image = image::open(path).unwrap().to_rgba8();
+        let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
+            .expect("Unable to load texture for face indicator"); 
+        let image = image::load_from_memory(bytes.as_ref()).unwrap().to_rgba8();
         let image_dimensions = image.dimensions();
         let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
         Texture2d::new(&context, image).unwrap()
@@ -387,14 +314,16 @@ impl Renderer {
         grid_objects
     }
 
-    pub fn new(context: Rc<glium::backend::Context>) -> Self {
+    pub fn new(context: Rc<Context>) -> Self {
         let vertex_shader = {
-            let bytes = gio::resources_lookup_data("/io/redgradient/MCSkinEditor/vertex.glsl", ResourceLookupFlags::NONE)
+            let path = "/io/redgradient/MCSkinEditor/shaders/vertex.glsl";
+            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
                 .expect("Failed to get vertex shader");
             String::from_utf8(bytes.to_vec()).expect("Failed to get vertex shader")
         };
         let fragment_shader = {
-            let bytes = gio::resources_lookup_data("/io/redgradient/MCSkinEditor/fragment.glsl", ResourceLookupFlags::NONE)
+            let path = "/io/redgradient/MCSkinEditor/shaders/fragment.glsl";
+            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
                 .expect("Failed to get fragment shader");
             String::from_utf8(bytes.to_vec()).expect("Failed to get fragment shader")
         };

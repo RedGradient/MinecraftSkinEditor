@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-
-    <gresource prefix="/io/redgradient/MCSkinEditor/">
-        <file compressed="true">ui/icons/scalable/actions/edit-undo-symbolic.svg</file>
-        <file compressed="true">ui/icons/scalable/actions/edit-redo-symbolic.svg</file>
-    </gresource>
-
     <gresource prefix="/io/redgradient/MCSkinEditor/media/">
         <file alias="pencil.png">ui/media/pencil.png</file>
         <file alias="eraser.png">ui/media/eraser.png</file>
@@ -16,9 +10,18 @@
 
     <gresource prefix="/io/redgradient/MCSkinEditor/">
         <file alias="window.ui">ui/window.ui</file>
-        <file alias="fragment.glsl">shaders/fragment.glsl</file>
-        <file alias="vertex.glsl">shaders/vertex.glsl</file>
+        <file alias="shaders/fragment.glsl">shaders/fragment.glsl</file>
+        <file alias="shaders/vertex.glsl">shaders/vertex.glsl</file>
+        <file alias="shaders/face-indicator/fragment.glsl">shaders/face-indicator/fragment.glsl</file>
+        <file alias="shaders/face-indicator/vertex.glsl">shaders/face-indicator/vertex.glsl</file>
         <file alias="style.css">css/style.css</file>
+
+        <file alias="steve-front.png">steve-front.png</file>
+        <file alias="steve-back.png">steve-back.png</file>
+        <file alias="steve-right.png">steve-right.png</file>
+        <file alias="steve-left.png">steve-left.png</file>
+        <file alias="steve-top.png">steve-top.png</file>
+        <file alias="steve-bottom.png">steve-bottom.png</file>
     </gresource>
 
 </gresources>
