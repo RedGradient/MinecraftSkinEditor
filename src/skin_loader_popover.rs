@@ -1,16 +1,18 @@
 use std::io::{Read, Write};
 use std::sync::OnceLock;
 
+use bytes::BufMut;
 use gtk::{gio, glib, Orientation};
-use gtk::gdk_pixbuf::Pixbuf;
-use gtk::gio::MemoryInputStream;
+use gtk::gdk::Texture;
 use gtk::glib::clone;
-use gtk::prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt};
+use gtk::prelude::{BoxExt, BufferedInputStreamExt, ButtonExt, EditableExt, WidgetExt};
+use gtk::prelude::TextureExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use image::EncodableLayout;
+use image::{DynamicImage, EncodableLayout, GenericImage, GenericImageView};
 use tokio::runtime::Runtime;
 
-use crate::utils::get_model_type;
+use crate::glium_area::skin_parser::TextureType;
+use crate::utils::guess_model_type;
 use crate::window::Window;
 
 mod imp {
@@ -77,13 +79,17 @@ impl SkinApiClient {
         SkinApiClient
     }
     
-    pub async fn get_skin(&self, nickname: &str) -> Result<bytes::Bytes, reqwest::Error> {
+    pub async fn get_skin(&self, nickname: &str) -> Result<DynamicImage, ()> {
         let uri = format!("{}/{}", Self::URI, nickname);
         let url = reqwest::Url::parse(uri.as_str()).unwrap();
-        let skin = reqwest::get(url).await?.bytes().await?;
-        
-        // let skin = reqwest::blocking::get(url).unwrap().bytes().unwrap();
-        Ok(skin)
+        let mut skin = reqwest::get(url)
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+
+        Ok(image::load_from_memory(skin.as_bytes()).unwrap())
     }
 }
 
@@ -103,40 +109,22 @@ impl SkinLoaderPopover {
             let popover = popover.clone();
             let win = win.clone();
             runtime().block_on(clone!(@weak popover as p => async move {
-                let nickname = popover.imp().search_skin_entry.text();
                 let client = SkinApiClient::new();
-
-                // --- get skin as bytes ---
-                let bytes = client.get_skin(nickname.as_str()).await.unwrap();
-                
-                // let front_texture = ...(bytes);
-                
-                // --- make GtkImage from bytes ---
-                let glib_bytes: glib::Bytes = glib::Bytes::from(bytes.as_bytes());
-                let input_stream = MemoryInputStream::from_bytes(&glib_bytes);
-                let pixbuf = Pixbuf::from_stream(&input_stream, None::<&gio::Cancellable>).unwrap();
-                let image = gtk::Image::from_pixbuf(Some(&pixbuf));
-                image.set_height_request(50);
-                image.set_width_request(50);
-
-                // --- construct list item ---
-                let list_item = gtk::Box::builder().spacing(10).orientation(Orientation::Horizontal).build();
-                let label = gtk::Label::new(Some(nickname.as_str()));
-                list_item.append(&image);
-                list_item.append(&label);
-                let button = gtk::Button::new();
-                button.set_child(Some(&list_item));
-                
+                let nickname = popover.imp().search_skin_entry.text();
+                let texture = client.get_skin(nickname.as_str()).await.unwrap();
+                let texture_button = SkinLoaderPopover::create_texture_button(&texture, nickname.as_str());
                 let win = win.clone();
-                button.connect_clicked(move |_| {
+                texture_button.connect_clicked(move |_| {
                     let renderer = win.imp().gl_area.renderer();
                     let mut renderer = renderer.as_ref().unwrap().borrow_mut();
-                    let model_type = get_model_type(bytes.as_bytes());
-                    if model_type.is_err() {
-                        println!("model_type is err");
-                        return
-                    }
-                    let load_result = renderer.load_texture_from_bytes(&bytes, model_type.unwrap(), false);
+                    let model_type = guess_model_type(texture.as_bytes());
+                    let texture_type = match texture.dimensions() {
+                        (64, 64) => TextureType::Normal,
+                        (64, 32) => TextureType::Legacy,
+                        _ => panic!("Wrong texture dimensions")
+                    };
+                    let load_result = renderer.load_texture_from_bytes(
+                        &texture, model_type.unwrap(), texture_type, false);
                     if load_result.is_err() {
                         println!("Error loading texture: {:?}", load_result.unwrap_err());
                         return
@@ -148,8 +136,74 @@ impl SkinLoaderPopover {
                 if let Some(child) = popover.imp().popover_content.last_child() {
                     popover.imp().popover_content.remove(&child); 
                 }
-                popover.imp().popover_content.append(&button);
+                popover.imp().popover_content.append(&texture_button);
             }));
         });
     }
+
+    fn create_texture_button(img: &DynamicImage, title: &str) -> gtk::Button {
+        let button = gtk::Button::new();
+        let temp_file = "temp_image.png";
+        img.save(temp_file).unwrap();
+        let f = gio::File::for_path(temp_file);
+        // let glib_bytes = glib::Bytes::from(img.as_bytes());
+        // let paintable = Texture::from_bytes(&glib_bytes).unwrap();
+        let paintable = Texture::from_file(&f).unwrap();
+        let image = gtk::Image::builder()
+            .paintable(&paintable)
+            .height_request(50)
+            .width_request(50)
+            .build();
+        let label = gtk::Label::new(Some(title));
+        let inner_box = gtk::Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(10)
+            .build();
+        inner_box.append(&image);
+        inner_box.append(&label);
+        button.set_child(Some(&inner_box));
+
+        button
+    }
+}
+
+
+#[test]
+fn test() {
+    let bytes = include_bytes!("/Users/redgradient/RustroverProjects/MinecraftSkinEditor/resources/steve-front.png");
+
+    // let glib_bytes = glib::Bytes::from(bytes);
+    // let paintable = Texture::from_bytes(&glib_bytes).unwrap();
+
+    let img = image::load_from_memory(bytes).unwrap();
+    img.save("temp_image.png").unwrap();
+    let f = gio::File::for_path("temp_image.png");
+    Texture::from_file(&f).expect("");
+    // let paintable = Texture::from_bytes(&glib_bytes).unwrap();
+}
+
+#[test]
+fn test2() {
+    let bytes = include_bytes!("/Users/redgradient/RustroverProjects/MinecraftSkinEditor/resources/steve-front.png");
+    // let mut di = image::ImageBuffer::new(64, 64);
+    // let x: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(64, 64, bytes.to_vec()).unwrap();
+
+    // assert_eq!(bytes, x.as_bytes());
+
+    const URI: &'static str = "https://mc-heads.net/skin/Lysias";
+    let url = reqwest::Url::parse(URI).unwrap();
+    let mut skin = reqwest::blocking::get(url).unwrap().bytes().unwrap();
+    
+    let image = image::io::Reader::new(std::io::Cursor::new(skin.as_bytes()))
+        .with_guessed_format()
+        .unwrap()
+        .decode()
+        .unwrap();
+    
+    // assert_eq!(bytes, image.as_bytes());
+    // assert_eq!(bytes, di.as_rgba8().unwrap().as_bytes());
+    // assert_eq!(bytes, di.into_bytes().as_slice());
+    // assert_eq!(bytes, di.as_bytes());
+
+    assert_eq!(skin.as_bytes(), image.as_bytes());
 }

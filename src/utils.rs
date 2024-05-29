@@ -1,34 +1,18 @@
 use gtk::gdk::RGBA;
-use image::{EncodableLayout, GenericImageView};
 use rand::Rng;
+
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::body_part::BodyPart::RightArmOuter;
-
 use crate::glium_area::model_object::ModelObject;
-use crate::glium_area::renderer::Side;
 use crate::glium_area::skin_parser::ModelType;
 
 pub fn rgba_to_f32_array(rgba: RGBA) -> [f32; 4] {
     [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()]
 }
 
-pub fn get_model_type(bytes: &[u8]) -> Result<ModelType, ()> {
-    let img = image::load_from_memory(bytes.as_bytes()).map_err(|_| ())?;
-
-    check_texture_dimensions(&img).map_err(|err| ())?;
-    
-    Ok(ModelType::Slim)
-}
-
-pub fn check_texture_dimensions(img: &image::DynamicImage) -> Result<(), ()> {
-    if img.dimensions() != (64, 64) {
-        println!("Texture has wrong dimensions: {:?}", img.dimensions());
-        // let message = format!("Image has wrong dimensions: ({}, {})", img.dimensions().0, img.dimensions().1);
-        return Err(());
-    }
-    
-    Ok(())
+pub fn guess_model_type(bytes: &[u8]) -> Result<ModelType, ()> {
+    Ok(ModelType::Classic)
 }
 
 pub fn random_brightness(color: [f32; 4]) -> [f32; 4] {

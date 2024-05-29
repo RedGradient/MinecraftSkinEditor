@@ -2,7 +2,6 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use gtk::glib;
-use gtk::glib::clone;
 use gtk::prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use image::EncodableLayout;
@@ -97,7 +96,6 @@ impl SkinDialog {
                 .expect("Texture path is not set. This can happen if the dialog was not created using 'new()' method");
             let texture_path = texture_path.to_str().unwrap();
 
-            renderer.reset_model_type(&model_type);
             let _ = renderer.load_texture(texture_path, &model_type, false);
             window.imp().drawing_history.borrow()
                 .as_ref()
