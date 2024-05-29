@@ -2,18 +2,15 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use glium::{Frame, implement_vertex, IndexBuffer, Program, program, Surface, Texture2d, uniform, VertexBuffer};
-use glium::backend::{Context, Facade};
-use glium::index::IndicesSource::NoIndices;
+use glium::{Frame, IndexBuffer, Program, Surface, Texture2d, uniform, VertexBuffer};
+use glium::backend::Context;
 use glium::index::PrimitiveType;
-use glium::texture::{RawImage2d, UncompressedFloatFormat};
-use glium::uniforms::SamplerWrapFunction;
+use glium::texture::RawImage2d;
 use gtk::gio;
 use gtk::gio::ResourceLookupFlags;
-use image::{EncodableLayout, ImageBuffer, Rgba};
+use image::{ImageBuffer, Rgba};
 use nalgebra_glm as glm;
 use nalgebra_glm::Mat4;
 
@@ -29,7 +26,7 @@ use crate::glium_area::model::arm_fn::{cuboid_3x12x4, cuboid_4x12x4, grid_3x12x4
 use crate::glium_area::model_object::{ModelObject, ModelObjectType};
 use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
-use crate::glium_area::skin_parser::{ColorMap, ModelType, SkinParser, TextureLoadError};
+use crate::glium_area::skin_parser::{ColorMap, ModelType, SkinParser, TextureLoadError, TextureType};
 use crate::glium_area::vertex::{Vertex, VertexTex};
 use crate::utils;
 
@@ -454,22 +451,26 @@ impl Renderer {
     }
 
     pub fn load_texture(&mut self, path: &str, model_type: &ModelType, ignore_transparent: bool) -> Result<(), TextureLoadError> {
-        let parser = SkinParser::new(model_type);
+        let parser = SkinParser::new(model_type, TextureType::Normal);
         let color_map = parser.load_from_path(path)?;
 
+        self.reset_model_type(&model_type);
         self.load_from_color_map(color_map, ignore_transparent);
 
         Ok(())
     }
 
     pub fn load_texture_from_bytes(&mut self,
-                                   bytes: &bytes::Bytes,
+                                   // bytes: &[u8],
+                                   image: &image::DynamicImage, 
                                    model_type: ModelType,
+                                   texture_type: TextureType,
                                    ignore_transparent: bool) -> Result<(), TextureLoadError>
     {
-        let parser = SkinParser::new(&model_type);
-        let color_map = parser.load_from_bytes(bytes)?;
-
+        let parser = SkinParser::new(&model_type, texture_type);
+        let color_map = parser.load_from_bytes(image)?;
+        
+        self.reset_model_type(&model_type);
         self.load_from_color_map(color_map, ignore_transparent);
 
         Ok(())
@@ -693,7 +694,7 @@ impl Renderer {
         let height = 64;
         let mut imgbuf: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::new(width, height);
 
-        let parser = SkinParser::new(&self.model_type);
+        let parser = SkinParser::new(&self.model_type, TextureType::Normal);
         for (body_part, cell_object) in &self.model_objects {
             parser.export_as(&body_part, &mut imgbuf, &cell_object.get_vertexes());
         }

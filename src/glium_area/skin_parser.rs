@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
-use image::{DynamicImage, EncodableLayout, GenericImage, GenericImageView, ImageBuffer, ImageError, Rgba};
+use image::{DynamicImage, GenericImage, GenericImageView, ImageBuffer, ImageError, Rgba};
 
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::cube_side::CubeSide;
 use crate::glium_area::vertex::Vertex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Point {
     x: u32,
     y: u32,
@@ -17,7 +17,7 @@ impl Point {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Dimensions {
     width: u32,
     height: u32,
@@ -28,7 +28,7 @@ impl Dimensions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SideMeta {
     position: Point,
     dimensions: Dimensions,
@@ -41,9 +41,6 @@ impl SideMeta {
 
 type HelperMap = HashMap<BodyPart, BTreeMap<CubeSide, SideMeta>>;
 
-pub struct SkinParser {
-    helper_map: HelperMap,
-}
 
 const VEC_IN_CELL: usize = 4;
 
@@ -62,33 +59,69 @@ pub enum TextureLoadError {
     ImageDimensionError(String)
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum TextureType {
+    Normal,
+    Legacy
+}
+
+pub struct SkinParser {
+    helper_map: HelperMap,
+    texture_type: TextureType,
+}
+
 impl SkinParser {
-    pub fn new(model_type: &ModelType) -> Self {
-        SkinParser { helper_map: SkinParser::generate_helper_map(model_type) }
+    pub fn new(model_type: &ModelType, texture_type: TextureType) -> Self {
+        let helper_map = match texture_type {
+            TextureType::Normal => SkinParser::generate_helper_map(model_type),
+            TextureType::Legacy => SkinParser::generate_helper_map_legacy(model_type),
+        };
+        SkinParser { helper_map, texture_type }
     }
 
     pub fn load_from_path(&self, path: &str) -> Result<ColorMap, TextureLoadError> {
         let img = image::open(path).map_err(|err| TextureLoadError::Image(err))?;
-        self.load_image(img)
+        self.load_image(&img)
     }
 
-    pub fn load_from_bytes(&self, bytes: &bytes::Bytes) -> Result<ColorMap, TextureLoadError> {
-        let img = image::load_from_memory(bytes.as_bytes()).map_err(|err| TextureLoadError::Image(err))?;
-        self.load_image(img)
+    pub fn load_from_bytes(&self,
+                           // bytes: &[u8],
+                           image: &DynamicImage,
+    ) -> Result<ColorMap, TextureLoadError> {
+        // let img = image::load_from_memory_with_format(
+        //     bytes,
+        //     ImageFormat::Png).map_err(|err| TextureLoadError::Image(err))?;
+        // let img = image::io::Reader::new(std::io::Cursor::new(bytes))
+        //     .with_guessed_format().unwrap().decode().unwrap();
+
+        self.load_image(image)
     }
 
-    fn load_image(&self, img: image::DynamicImage) -> Result<ColorMap, TextureLoadError> {
-        if img.dimensions() != (64, 64) {
-            let message = format!("Image has wrong dimensions: ({}, {})", img.dimensions().0, img.dimensions().1);
-            return Err(TextureLoadError::ImageDimensionError(message));
-        }
-
+    fn load_image(&self, img: &DynamicImage) -> Result<ColorMap, TextureLoadError> {
         let mut color_map: ColorMap = HashMap::new();
-
         for (body_part, helper) in &self.helper_map {
             let mut body_part_color_map: BTreeMap<CubeSide, Vec<Rgba<u8>>> = BTreeMap::new();
             for (side, meta) in helper {
-                let colors = self.image_slice(&img, meta.position.x, meta.position.y, meta.dimensions.width, meta.dimensions.height);
+                let image_slice = img.view(
+                    meta.position.x,
+                    meta.position.y,
+                    meta.dimensions.width,
+                    meta.dimensions.height
+                );
+
+                let colors: Vec<Rgba<u8>> = match self.texture_type {
+                    TextureType::Normal => image_slice.pixels().map(|(_, _, rgba)| rgba).collect(),
+                    TextureType::Legacy => match body_part {
+                        BodyPart::LeftArm | BodyPart::LeftLeg => {
+                            DynamicImage::from(image_slice.to_image())
+                                .fliph().pixels()
+                                .map(|(_, _, rgba)| rgba)
+                                .collect()
+                        },
+                        _ => image_slice.pixels().map(|(_, _, rgba)| rgba).collect()
+                    }
+                };
+
                 body_part_color_map.insert(side.clone(), colors);
             }
             color_map.insert(body_part.clone(), body_part_color_map);
@@ -122,14 +155,18 @@ impl SkinParser {
     }
 
     fn image_slice(&self, img: &DynamicImage, x: u32, y: u32, width: u32, height: u32) -> Vec<Rgba<u8>> {
-        let mut slice = vec![];
-        for i in y..y + height {
-            for j in x..x + width {
-                let pixel = img.get_pixel(j, i);
-                slice.push(pixel);
-            }
-        }
-        slice
+        // let mut slice = vec![];
+        // for i in y..y + height {
+        //     for j in x..x + width {
+        //         let pixel = img.get_pixel(j, i);
+        //         slice.push(pixel);
+        //     }
+        // }
+        // slice
+
+        img.view(x, y, width, height).pixels()
+            .map(|(_, _, rgba)| rgba)
+            .collect()
     }
 
     fn export_pixels(
@@ -172,6 +209,17 @@ impl SkinParser {
             head_helper.insert(CubeSide::Top, SideMeta::new(Point::new(8, 0), Dimensions::new(8, 8)));
             head_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(16, 0), Dimensions::new(8, 8)));
         }
+
+        // -----------
+        let head_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::from([
+            (CubeSide::Front, SideMeta::new(Point::new(8, 8), Dimensions::new(8, 8))),
+            (CubeSide::Left, SideMeta::new(Point::new(16, 8), Dimensions::new(8, 8))),
+            (CubeSide::Back, SideMeta::new(Point::new(24, 8), Dimensions::new(8, 8))),
+            (CubeSide::Right, SideMeta::new(Point::new(0, 8), Dimensions::new(8, 8))),
+            (CubeSide::Top, SideMeta::new(Point::new(8, 0), Dimensions::new(8, 8))),
+            (CubeSide::Bottom, SideMeta::new(Point::new(16, 0), Dimensions::new(8, 8)))]
+        );
+        // -----------
 
         let mut torso_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
         {
@@ -328,6 +376,7 @@ impl SkinParser {
         helper_map.insert(BodyPart::LeftArm, left_arm_helper);
         helper_map.insert(BodyPart::RightLeg, right_leg_helper);
         helper_map.insert(BodyPart::LeftLeg, left_leg_helper);
+
         helper_map.insert(BodyPart::HeadOuter, head_outer_helper);
         helper_map.insert(BodyPart::TorsoOuter, torso_outer_helper);
         helper_map.insert(BodyPart::RightArmOuter, right_arm_outer_helper);
@@ -336,5 +385,135 @@ impl SkinParser {
         helper_map.insert(BodyPart::LeftLegOuter, left_leg_outer_helper);
 
         helper_map
+    }
+
+    fn generate_helper_map_legacy(model_type: &ModelType) -> HelperMap {
+        let mut helper_map: HelperMap = HashMap::new();
+
+        let head_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::from({
+            [(CubeSide::Front, SideMeta::new(Point::new(8, 8), Dimensions::new(8, 8))),
+                (CubeSide::Left, SideMeta::new(Point::new(16, 8), Dimensions::new(8, 8))),
+                (CubeSide::Back, SideMeta::new(Point::new(24, 8), Dimensions::new(8, 8))),
+                (CubeSide::Right, SideMeta::new(Point::new(0, 8), Dimensions::new(8, 8))),
+                (CubeSide::Top, SideMeta::new(Point::new(8, 0), Dimensions::new(8, 8))),
+                (CubeSide::Bottom, SideMeta::new(Point::new(16, 0), Dimensions::new(8, 8)))]
+        });
+
+        let mut torso_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
+        {
+            torso_helper.insert(CubeSide::Front, SideMeta::new(Point::new(20, 20), Dimensions::new(8, 12)));
+            torso_helper.insert(CubeSide::Left, SideMeta::new(Point::new(28, 20), Dimensions::new(4, 12)));
+            torso_helper.insert(CubeSide::Back, SideMeta::new(Point::new(32, 20), Dimensions::new(8, 12)));
+            torso_helper.insert(CubeSide::Right, SideMeta::new(Point::new(16, 20), Dimensions::new(4, 12)));
+            torso_helper.insert(CubeSide::Top, SideMeta::new(Point::new(20, 16), Dimensions::new(8, 4)));
+            torso_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(28, 16), Dimensions::new(8, 4)));
+        }
+
+        let mut right_arm_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
+        match model_type {
+            ModelType::Classic => {
+                right_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(48, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(52, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(4, 4)));
+                right_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 16), Dimensions::new(4, 4)));
+            },
+            ModelType::Slim => {
+                right_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(3, 12)));
+                right_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(47, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(51, 20), Dimensions::new(3, 12)));
+                right_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
+                right_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(3, 4)));
+                right_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(47, 16), Dimensions::new(3, 4)));
+            }
+        }
+
+        let mut left_arm_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
+        match model_type {
+            ModelType::Classic => {
+                left_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(52, 20), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(48, 20), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(4, 4)));
+                left_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 16), Dimensions::new(4, 4)));
+            },
+            ModelType::Slim => {
+                left_arm_helper.insert(CubeSide::Front, SideMeta::new(Point::new(44, 20), Dimensions::new(3, 12)));
+                left_arm_helper.insert(CubeSide::Left, SideMeta::new(Point::new(40, 20), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Back, SideMeta::new(Point::new(51, 20), Dimensions::new(3, 12)));
+                left_arm_helper.insert(CubeSide::Right, SideMeta::new(Point::new(47, 20), Dimensions::new(4, 12)));
+                left_arm_helper.insert(CubeSide::Top, SideMeta::new(Point::new(44, 16), Dimensions::new(3, 4)));
+                left_arm_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(47, 16), Dimensions::new(3, 4)));
+            }
+        }
+
+        let mut right_leg_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
+        {
+            right_leg_helper.insert(CubeSide::Front, SideMeta::new(Point::new(4, 20), Dimensions::new(4, 12)));
+            right_leg_helper.insert(CubeSide::Left, SideMeta::new(Point::new(8, 20), Dimensions::new(4, 12)));
+            right_leg_helper.insert(CubeSide::Back, SideMeta::new(Point::new(12, 20), Dimensions::new(4, 12)));
+            right_leg_helper.insert(CubeSide::Right, SideMeta::new(Point::new(0, 20), Dimensions::new(4, 12)));
+            right_leg_helper.insert(CubeSide::Top, SideMeta::new(Point::new(4, 16), Dimensions::new(4, 4)));
+            right_leg_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(8, 16), Dimensions::new(4, 4)));
+        }
+
+        let mut left_leg_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
+        {
+            left_leg_helper.insert(CubeSide::Front, SideMeta::new(Point::new(4, 20), Dimensions::new(4, 12)));
+            left_leg_helper.insert(CubeSide::Left, SideMeta::new(Point::new(0, 20), Dimensions::new(4, 12)));
+            left_leg_helper.insert(CubeSide::Back, SideMeta::new(Point::new(12, 20), Dimensions::new(4, 12)));
+            left_leg_helper.insert(CubeSide::Right, SideMeta::new(Point::new(8, 20), Dimensions::new(4, 12)));
+            left_leg_helper.insert(CubeSide::Top, SideMeta::new(Point::new(4, 16), Dimensions::new(4, 4)));
+            left_leg_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(8, 16), Dimensions::new(4, 4)));
+        }
+
+        let mut head_outer_helper: BTreeMap<CubeSide, SideMeta> = BTreeMap::new();
+        {
+            head_outer_helper.insert(CubeSide::Front, SideMeta::new(Point::new(40, 8), Dimensions::new(8, 8)));
+            head_outer_helper.insert(CubeSide::Left, SideMeta::new(Point::new(48, 8), Dimensions::new(8, 8)));
+            head_outer_helper.insert(CubeSide::Back, SideMeta::new(Point::new(56, 8), Dimensions::new(8, 8)));
+            head_outer_helper.insert(CubeSide::Right, SideMeta::new(Point::new(32, 8), Dimensions::new(8, 8)));
+            head_outer_helper.insert(CubeSide::Top, SideMeta::new(Point::new(40, 0), Dimensions::new(8, 8)));
+            head_outer_helper.insert(CubeSide::Bottom, SideMeta::new(Point::new(48, 0), Dimensions::new(8, 8)));
+        }
+
+        helper_map.insert(BodyPart::Head, head_helper);
+        helper_map.insert(BodyPart::Torso, torso_helper);
+        helper_map.insert(BodyPart::RightArm, right_arm_helper);
+        helper_map.insert(BodyPart::LeftArm, left_arm_helper);
+        helper_map.insert(BodyPart::RightLeg, right_leg_helper.clone());
+        helper_map.insert(BodyPart::LeftLeg, left_leg_helper);
+
+        helper_map.insert(BodyPart::HeadOuter, head_outer_helper);
+
+        helper_map
+    }
+
+
+}
+
+#[test]
+fn test() {
+}
+
+struct Texture;
+impl Texture {
+    pub fn from_bytes() -> Texture {
+        Texture
+    }
+
+    pub fn from_file() -> Texture {
+        Texture
+    }
+
+    pub fn save(&self) { }
+
+    pub fn color_map(&self) { }
+
+    /// Guess texture type. Texture can be Classic or Slim
+    pub fn with_guessed_type() {
+
     }
 }
