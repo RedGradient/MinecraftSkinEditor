@@ -34,10 +34,6 @@ impl Command {
     }
 
     pub fn random_draw(target_cell: ModelCell, color: [f32; 4]) -> Command {
-        // Command::draw(target_cell, Command::adjust_color(color, 0.1))
-        // random_saturation_adjustment
-        // Command::draw(target_cell, random_saturation_adjustment(color, 0.2))
-        // random_brightness
         Command::draw(target_cell, random_brightness(color))
     }
 }
