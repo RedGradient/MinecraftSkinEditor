@@ -454,7 +454,6 @@ impl Renderer {
         let parser = SkinParser::new(model_type, TextureType::Normal);
         let color_map = parser.load_from_path(path)?;
 
-        self.reset_skin();
         self.reset_model_type(&model_type);
         self.load_from_color_map(color_map, ignore_transparent);
 
@@ -471,7 +470,6 @@ impl Renderer {
         let parser = SkinParser::new(&model_type, texture_type);
         let color_map = parser.load_from_bytes(image)?;
         
-        self.reset_skin();
         self.reset_model_type(&model_type);
         self.load_from_color_map(color_map, ignore_transparent);
 
