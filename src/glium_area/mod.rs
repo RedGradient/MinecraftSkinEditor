@@ -10,11 +10,12 @@ use gtk::glib::{clone, Propagation};
 use gtk::prelude::{GestureExt, GLAreaExt, IsA, ToggleButtonExt, WidgetExt};
 use gtk::subclass::prelude::{ObjectSubclassExt, ObjectSubclassIsExt};
 
-use crate::command::Command;
-use crate::command::Tool::{ColorPicker, Fill, Pencil, Random, Rubber};
+use crate::command::*;
+use crate::command::Tool;
 use crate::glium_area::hover::Hover;
-use crate::glium_area::renderer::Renderer;
-use crate::utils::rgba_to_f32_array;
+use crate::glium_area::renderer::{ModelCell, Renderer};
+use crate::utils;
+use crate::utils::{random_brightness, rgba_to_f32};
 use crate::window::Window;
 
 mod imp;
@@ -176,74 +177,95 @@ impl GliumArea {
     }
 
     fn get_click_handler(&self, win: &Window) -> impl Fn(f32, f32, bool) {
-        clone!(@weak self as gl_area, @weak win => move |x, y, updating| {
+        let gl_area = self.clone();
+        let win = win.clone();
+        move |x, y, updating| {
             let renderer = gl_area.renderer().unwrap();
-
             let cell_opt = renderer.borrow().get_cell(x, y, false);
-            let cell = match cell_opt {
-                Some(value) => {
-                    if !updating { renderer.borrow_mut().set_mouse_hover(Some(Hover::OnModel)); }
-                    value
-                },
-                None => {
-                    if !updating { renderer.borrow_mut().set_mouse_hover(Some(Hover::OnEmptyArea)); }
-                    renderer.borrow_mut().start_motion(x, y);
-                    return
-                }
-            };
-
-            if !win.get_tool_active() {
+            if cell_opt.is_none() {
+                if !updating { renderer.borrow_mut().set_mouse_hover(Some(Hover::OnEmptyArea)); }
+                renderer.borrow_mut().start_motion(x, y);
+                return
+            }
+            if !updating {
+                renderer.borrow_mut().set_mouse_hover(Some(Hover::OnModel));
+            }
+            drop(renderer);
+            if !win.is_tool_active() {
                 gl_area.queue_draw();
                 return
             }
+            let cell = cell_opt.unwrap();
 
             match win.imp().current_tool.get() {
-                Pencil => {
-                    let color = rgba_to_f32_array(win.imp().color_button.rgba());
-                    let trying_draw_same_cell = match win.get_last_modified_cell() {
-                        Some(last) => last.same_cell(cell),
-                        None => false,
-                    };
-                    if !trying_draw_same_cell {
-                        let command = Command::draw(cell, color);
-                        win.add_command_to_history(command);
-                        win.set_last_modified(cell);
-                    }
-                },
-                Rubber => {
-                    let command = Command::draw(cell, [0.0, 0.0, 0.0, 0.0]);
-                    win.add_command_to_history(command);
-                },
-                ColorPicker => {
-                    let clicked_cell = renderer.borrow().get_cell(x, y, true);
-                    if let Some(cell) = clicked_cell {
-                        let rgba = RGBA::new(cell.color[0], cell.color[1], cell.color[2], 1.0);
-                        win.imp().color_button.set_rgba(&rgba);
-                        win.imp().pencil.set_active(true);
-                    }
-                },
-                Fill => {
-                    let cells = renderer.borrow().get_side_cells(&cell.body_part, cell.cell_index).unwrap();
-                    let rgba = win.imp().color_button.rgba();
-                    let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
-                    let command = Command::fill(&cell.body_part, &new_color, cells);
-                    win.add_command_to_history(command);
-                },
-                Random => {
-                    let color = rgba_to_f32_array(win.imp().color_button.rgba());
-                    let trying_draw_same_cell = match win.get_last_modified_cell() {
-                        Some(last) => last.same_cell(cell),
-                        None => false,
-                    };
-                    if !trying_draw_same_cell {
-                        let command = Command::random_draw(cell, color);
-                        win.add_command_to_history(command);
-                        win.set_last_modified(cell);
-                    }
-                },
+                Tool::Pencil => GliumArea::handle_pencil(gl_area.clone(), cell, win.clone()),
+                Tool::Rubber => GliumArea::handle_rubber(gl_area.clone(), cell, win.clone()),
+                Tool::Fill => GliumArea::handle_fill(gl_area.clone(), cell, win.clone()),
+                Tool::Random => GliumArea::handle_random(gl_area.clone(), cell, win.clone()),
+                Tool::Replace => GliumArea::handle_replace(gl_area.clone(), cell, win.clone()),
+                Tool::ColorPicker => GliumArea::handle_color_picker(x, y, win.clone()),
             }
 
             gl_area.queue_draw();
-        })
+        }
+    }
+    
+    fn handle_color_picker(x: f32, y: f32, win: Window) {
+        let renderer = win.imp().gl_area.renderer().unwrap();
+        let clicked_cell = renderer.borrow().get_cell(x, y, true);
+        if let Some(cell) = clicked_cell {
+            let rgba = utils::f32_to_rgba(cell.color);
+            win.imp().color_button.set_rgba(&rgba);
+            win.imp().pencil.set_active(true);
+        }
+    }
+    
+    fn handle_pencil(gl_area: GliumArea, cell: ModelCell, win: Window) {
+        let color = rgba_to_f32(win.imp().color_button.rgba());
+        let trying_draw_same_cell = match win.get_last_modified_cell() {
+            Some(last) => last.same_cell(cell),
+            None => false,
+        };
+        if !trying_draw_same_cell {
+            let draw_command = Box::new(Draw::new(gl_area.clone(), cell, color));
+            win.add_command_to_history(draw_command);
+            win.set_last_modified(cell);
+        }
+    }
+
+    fn handle_replace(gl_area: GliumArea, cell: ModelCell, win: Window) {
+        if cell.color[3] == 0.0 {
+            return
+        }
+        let rgba = win.imp().color_button.rgba();
+        let new_color: [f32; 4] = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
+        let command = Box::new(Replace::new(gl_area.clone(), cell.color, new_color));
+        win.add_command_to_history(command);
+    }
+    
+    fn handle_random(gl_area: GliumArea, cell: ModelCell, win: Window) {
+        let color = rgba_to_f32(win.imp().color_button.rgba());
+        let trying_draw_same_cell = match win.get_last_modified_cell() {
+            Some(last) => last.same_cell(cell),
+            None => false,
+        };
+        if !trying_draw_same_cell {
+            let draw_command = Box::new(Draw::new(gl_area.clone(), cell, random_brightness(color)));
+            win.add_command_to_history(draw_command);
+            win.set_last_modified(cell);
+        }
+    }
+    
+    fn handle_rubber(gl_area: GliumArea, cell: ModelCell, win: Window) {
+        let command = Box::new(Draw::new(gl_area.clone(), cell, [0.0, 0.0, 0.0, 0.0]));
+        win.add_command_to_history(command);
+    }
+    
+    fn handle_fill(gl_area: GliumArea, cell: ModelCell, win: Window) {
+        let renderer = gl_area.renderer().unwrap();
+        let cells_to_fill = renderer.borrow().get_side_cells(&cell.body_part, cell.cell_index).unwrap();
+        let new_color = rgba_to_f32(win.imp().color_button.rgba());
+        let fill_command = Fill::new(gl_area.clone(), cell.body_part, new_color, cells_to_fill.clone());
+        win.add_command_to_history(Box::new(fill_command));
     }
 }

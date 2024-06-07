@@ -6,6 +6,7 @@
         <file alias="color_picker.png">ui/media/color_picker.png</file>
         <file alias="grid.png">ui/media/grid.png</file>
         <file alias="fill.png">ui/media/fill.png</file>
+        <file alias="replace.png">ui/media/replace.png</file>
     </gresource>
 
     <gresource prefix="/io/redgradient/MCSkinEditor/">

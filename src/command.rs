@@ -1,42 +1,147 @@
+use std::cell::RefCell;
 use gtk::prelude::WidgetExt;
 
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::GliumArea;
 use crate::glium_area::renderer::ModelCell;
-use crate::utils::random_brightness;
 
-#[derive(Debug, Clone)]
-pub enum Command {
-    Draw { prev: ModelCell, new: ModelCell },
-    Fill { body_part: BodyPart, fill_color: [f32; 4], prev_colors: Vec<ModelCell> },
+pub trait Action {
+    fn execute(&self);
+    fn undo(&self);
+    fn redo(&self);
 }
 
-impl Command {
-    pub fn draw(target_cell: ModelCell, new_color: [f32; 4]) -> Command {
-        let new = ModelCell {
-            body_part: target_cell.body_part.clone(),
-            cell_index: target_cell.cell_index,
-            color: new_color
+pub struct Draw {
+    gl_area: GliumArea,
+    old_cell: ModelCell,
+    new_cell: ModelCell,
+}
+impl Draw {
+    pub fn new(gl_area: GliumArea, cell: ModelCell, color: [f32; 4]) -> Draw {
+        let new_cell = ModelCell {
+            body_part: cell.body_part,
+            cell_index: cell.cell_index,
+            color
         };
-
-        Command::Draw {
-            prev: target_cell,
-            new
+        
+        Draw {
+            gl_area,
+            old_cell: cell,
+            new_cell,
         }
-    }
-
-    pub fn fill(body_part: &BodyPart, fill_color: &[f32; 4], prev_colors: Vec<ModelCell>) -> Command {
-        Command::Fill {
-            body_part: body_part.clone(),
-            fill_color: fill_color.clone(),
-            prev_colors
-        }
-    }
-
-    pub fn random_draw(target_cell: ModelCell, color: [f32; 4]) -> Command {
-        Command::draw(target_cell, random_brightness(color))
     }
 }
+impl Action for Draw {
+    fn execute(&self) {
+        let renderer = self.gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+        renderer.set_cell(&self.new_cell);
+        self.gl_area.queue_draw();
+    }
+    fn undo(&self) {
+        let renderer = self.gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+        renderer.set_cell(&self.old_cell);
+        self.gl_area.queue_draw();
+    }
+    fn redo(&self) {
+        self.execute();
+    }
+}
+
+
+pub struct Fill {
+    gl_area: GliumArea,
+    body_part: BodyPart,
+    fill_color: [f32; 4],
+    prev_colors: Vec<ModelCell>,
+}
+impl Fill {
+    pub fn new(gl_area: GliumArea, body_part: BodyPart, fill_color: [f32; 4], prev_colors: Vec<ModelCell>) -> Fill {
+        Fill {
+            gl_area,
+            body_part,
+            fill_color,
+            prev_colors,
+        }
+    }
+}
+impl Action for Fill {
+    fn execute(&self) {
+        let renderer = self.gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+
+        for cell in &self.prev_colors {
+            let new_cell = ModelCell {
+                body_part: cell.body_part.clone(),
+                cell_index: cell.cell_index,
+                color: self.fill_color,
+            };
+            renderer.set_cell(&new_cell);
+        }
+
+        self.gl_area.queue_draw();
+    }
+
+    fn undo(&self) {
+        let renderer = self.gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+
+        for cell in &self.prev_colors {
+            let new_cell = ModelCell {
+                body_part: cell.body_part.clone(),
+                cell_index: cell.cell_index,
+                color: cell.color,
+            };
+            renderer.set_cell(&new_cell);
+        }
+        self.gl_area.queue_draw();
+    }
+    fn redo(&self) {
+        self.execute();
+    }
+}
+
+
+pub struct Replace {
+    gl_area: GliumArea,
+    old_color: [f32; 4],
+    new_color: [f32; 4],
+    replaced_cells: RefCell<Vec<ModelCell>>,
+}
+impl Replace {
+    pub fn new(gl_area: GliumArea, old_color: [f32; 4], new_color: [f32; 4]) -> Replace {
+        Replace {
+            gl_area,
+            old_color,
+            new_color,
+            replaced_cells: RefCell::new(vec![]),
+        }
+    }
+}
+impl Action for Replace {
+    fn execute(&self) {
+        let renderer = self.gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+        let replaced = renderer.replace(self.old_color, self.new_color);
+        self.replaced_cells.replace(replaced);
+        self.gl_area.queue_draw();
+    }
+
+    fn undo(&self) {
+        let renderer = self.gl_area.renderer().unwrap();
+        let mut renderer = renderer.borrow_mut();
+        for model_cell in self.replaced_cells.borrow().iter() {
+            renderer.set_cell(model_cell);
+        }
+        self.gl_area.queue_draw();
+    }
+
+    fn redo(&self) {
+        self.execute();
+    }
+}
+
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Tool {
@@ -45,6 +150,7 @@ pub enum Tool {
     ColorPicker,
     Fill,
     Random,
+    Replace
 }
 
 impl Default for Tool {
@@ -55,8 +161,8 @@ impl Default for Tool {
 
 pub struct DrawingHistory {
     gl_area: GliumArea,
-    undo_stack: Vec<Command>,
-    redo_stack: Vec<Command>,
+    undo_stack: Vec<Box<dyn Action>>,
+    redo_stack: Vec<Box<dyn Action>>,
     last_modified_cell: Option<ModelCell>,
 }
 
@@ -65,8 +171,8 @@ impl DrawingHistory {
         DrawingHistory { gl_area, undo_stack: vec![], redo_stack: vec![], last_modified_cell: None }
     }
 
-    pub fn add_command(&mut self, command: Command) -> bool {
-        self._execute(&command);
+    pub fn add_command(&mut self, command: Box<dyn Action>) -> bool {
+        command.execute();
         self.undo_stack.push(command);
         self.redo_stack.clear();
         true
@@ -77,7 +183,7 @@ impl DrawingHistory {
         let command = self.undo_stack.pop()
             .expect("Error popping a command from undo_stack");
 
-        self._undo(&command);
+        command.undo();
         self.redo_stack.push(command);
 
         self.last_modified_cell.take();
@@ -88,7 +194,7 @@ impl DrawingHistory {
         let command = self.redo_stack.pop()
             .expect("Error popping a command from redo_stack.");
 
-        self._execute(&command);
+        command.redo();
         self.undo_stack.push(command);
 
         self.last_modified_cell.take();
@@ -101,57 +207,6 @@ impl DrawingHistory {
         self.last_modified_cell.replace(cell);
     }
     
-    fn _execute(&self, command: &Command) {
-        match command {
-            Command::Draw { prev, new } => {
-                // do redo for Pencil
-                let renderer = self.gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
-                renderer.set_cell(&new);
-                self.gl_area.queue_draw();
-            }
-            Command::Fill { body_part, fill_color, prev_colors } => {
-                // do redo for Fill
-                let renderer = self.gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
-
-                for cell in prev_colors {
-                    let new_cell = ModelCell {
-                        body_part: cell.body_part.clone(),
-                        cell_index: cell.cell_index,
-                        color: *fill_color,
-                    };
-                    renderer.set_cell(&new_cell);
-                }
-
-                self.gl_area.queue_draw();
-            }
-        }
-    }
-
-    fn _undo(&mut self, command: &Command) {
-        match command {
-            Command::Draw { prev, new } => {
-                let renderer = self.gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
-                renderer.set_cell(&prev);
-                self.gl_area.queue_draw();
-                self.last_modified_cell.replace(*new);
-            }
-            Command::Fill { body_part, fill_color, prev_colors} => {
-                // do undo for Fill
-                let renderer = self.gl_area.renderer().unwrap();
-                let mut renderer = renderer.borrow_mut();
-
-                for cell in prev_colors {
-                    renderer.set_cell(cell);
-                }
-
-                self.gl_area.queue_draw();
-            }
-        }
-    }
-
     pub fn clear(&mut self) {
         self.undo_stack.clear();
         self.redo_stack.clear();
