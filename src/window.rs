@@ -14,11 +14,10 @@ use libadwaita::prelude::AdwDialogExt;
 use rand::Rng;
 
 use crate::application::Application;
-use crate::command::{Command, Tool};
+use crate::command::{Action, Tool};
 use crate::command::DrawingHistory;
 use crate::command::Tool::*;
 use crate::glium_area::body_part::BodyPart::*;
-use crate::glium_area::GliumArea;
 use crate::glium_area::renderer::{ModelCell, Renderer};
 use crate::glium_area::skin_parser::ModelType;
 use crate::skin_dialog::SkinDialog;
@@ -79,6 +78,8 @@ mod imp {
         #[template_child]
         pub fill: TemplateChild<gtk::ToggleButton>,
         #[template_child]
+        pub replace_color: TemplateChild<gtk::ToggleButton>,
+        #[template_child]
         pub gl_area: TemplateChild<GliumArea>,
         #[template_child]
         pub model_switcher: TemplateChild<ModelSwitcher>,
@@ -92,7 +93,7 @@ mod imp {
         pub save_as_template_button: TemplateChild<gtk::Button>,
 
         pub current_tool: Cell<Tool>,
-        pub tool_active: Cell<bool>,
+        pub is_tool_active: Cell<bool>,
         pub opening_new_skin: Cell<bool>,
         pub drawing_history: RefCell<Option<RefCell<DrawingHistory>>>,
     }
@@ -197,11 +198,13 @@ impl Window {
         let color_picker_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/color_picker.png");
         let grid_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/grid.png");
         let fill_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/fill.png");
+        let replace_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/replace.png");
         self.imp().pencil.set_child(Some(&pencil_ico));
         self.imp().rubber.set_child(Some(&rubber_ico));
         self.imp().color_picker.set_child(Some(&color_picker_ico));
         self.imp().grid_toggle.set_child(Some(&grid_ico));
         self.imp().fill.set_child(Some(&fill_ico));
+        self.imp().replace_color.set_child(Some(&replace_ico));
     }
 
     fn connect_signals(&self) {
@@ -232,6 +235,7 @@ impl Window {
         self.imp().color_picker.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); }));
         self.imp().fill.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Fill); }));
         self.imp().random_color.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Random); }));
+        self.imp().replace_color.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Replace); }));
     }
 
     fn connect_reset_skin_button(&self) {
@@ -490,7 +494,7 @@ impl Window {
             .set_last_modified(cell);
     }
 
-    pub fn add_command_to_history(&self, command: Command) {
+    pub fn add_command_to_history(&self, command: Box<dyn Action>) {
         self.imp().drawing_history.borrow()
             .as_ref()
             .expect("Drawing history is not initialized")
@@ -499,10 +503,10 @@ impl Window {
     }
 
     fn set_tool_active(&self, active: bool) {
-        self.imp().tool_active.replace(active);
+        self.imp().is_tool_active.replace(active);
     }
 
-    pub fn get_tool_active(&self) -> bool {
-        self.imp().tool_active.get()
+    pub fn is_tool_active(&self) -> bool {
+        self.imp().is_tool_active.get()
     }
 }

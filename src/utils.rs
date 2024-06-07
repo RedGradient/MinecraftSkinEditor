@@ -1,3 +1,4 @@
+use gtk::gdk;
 use gtk::gdk::RGBA;
 use rand::Rng;
 
@@ -7,8 +8,11 @@ use crate::glium_area::body_part::BodyPart::RightArmOuter;
 use crate::glium_area::model_object::ModelObject;
 use crate::glium_area::skin_parser::ModelType;
 
-pub fn rgba_to_f32_array(rgba: RGBA) -> [f32; 4] {
+pub fn rgba_to_f32(rgba: RGBA) -> [f32; 4] {
     [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()]
+}
+pub fn f32_to_rgba(color: [f32; 4]) -> RGBA {
+    RGBA::new(color[0], color[1], color[2], color[3])
 }
 
 pub fn guess_model_type(bytes: &[u8]) -> Result<ModelType, ()> {

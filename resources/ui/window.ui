@@ -188,6 +188,14 @@
                                         <property name="label">Fill</property>
                                     </object>
                                 </child>
+                                <child>
+                                    <object class="GtkToggleButton" id="replace_color">
+                                        <property name="width-request">70</property>
+                                        <property name="height-request">70</property>
+                                        <property name="group">toggle_group</property>
+                                        <property name="label">Replace</property>
+                                    </object>
+                                </child>
 
                                 <!--Expander-->
                                 <child>

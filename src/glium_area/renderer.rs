@@ -520,6 +520,24 @@ impl Renderer {
 
         frame.finish().unwrap();
     }
+    
+    pub fn replace(&mut self, color_to_replace: [f32; 4], new_color: [f32; 4]) -> Vec<ModelCell> {
+        let mut replaced_cells = vec![];
+        for (body_part, model_object) in self.model_objects.iter_mut() {
+            for (cell_index, &pixel) in model_object.get_pixels().iter().enumerate() {
+                if pixel[0] == color_to_replace[0] && pixel[1] == color_to_replace[1] && pixel[2] == color_to_replace[2] {
+                    let cell = ModelCell {
+                        body_part: *body_part,
+                        cell_index,
+                        color: pixel
+                    };
+                    replaced_cells.push(cell);
+                    model_object.paint(cell_index, new_color);
+                }
+            }
+        }
+        replaced_cells
+    }
 
     pub fn mouse_move(&mut self, curr_x: f32, curr_y: f32) {
         if self.mouse_motion.is_some() {

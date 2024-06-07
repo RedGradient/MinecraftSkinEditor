@@ -130,7 +130,7 @@ impl ModelObject {
 
         self.vertex_buffer.write(&self.vertexes);
     }
-
+    
     pub fn clear(&mut self) {
         for vertex in self.vertexes.iter_mut() {
             vertex.color = [0.0, 0.0, 0.0, 0.0];
