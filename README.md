@@ -1,9 +1,5 @@
 ![MCSkinEditor UI](resources/screenshot-1.png)
 
-[//]: # (<p float="left">)
-[//]: # (  <img src="resources/screenshot-1.png" width="400" /> )
-[//]: # (</p>)
-
 # Minecraft Skin Editor
 > ⚠️ **ALPHA version**
 
