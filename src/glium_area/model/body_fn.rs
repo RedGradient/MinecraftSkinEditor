@@ -179,8 +179,8 @@ pub fn body_vertices() -> Vec<Vertex> {
 // --- GRID ---
 // ------------
 fn front_grid(vertices: &mut Vec<Vertex>) {
-    let width = 8;
-    let height = 12;
+    let width = 8 + 1;
+    let height = 12 + 1;
 
     let z = 0.25;
     for i in 0..height {
@@ -199,8 +199,8 @@ fn front_grid(vertices: &mut Vec<Vertex>) {
 }
 
 fn left_grid(vertices: &mut Vec<Vertex>) {
-    let width = 4;
-    let height = 12;
+    let width = 4 + 1;
+    let height = 12 + 1;
 
     let x = 0.5;
     for i in 0..height {
@@ -219,8 +219,8 @@ fn left_grid(vertices: &mut Vec<Vertex>) {
 }
 
 fn back_grid(vertices: &mut Vec<Vertex>) {
-    let width = 8;
-    let height = 12;
+    let width = 8 + 1;
+    let height = 12 + 1;
 
     let z = -0.25;
     for i in 0..height {
@@ -238,8 +238,8 @@ fn back_grid(vertices: &mut Vec<Vertex>) {
 }
 
 fn right_grid(vertices: &mut Vec<Vertex>) {
-    let width = 4;
-    let height = 12;
+    let width = 4 + 1;
+    let height = 12 + 1;
 
     let x = -0.5;
     for i in 0..height {
@@ -257,8 +257,8 @@ fn right_grid(vertices: &mut Vec<Vertex>) {
 }
 
 fn top_grid(vertices: &mut Vec<Vertex>) {
-    let width = 8;
-    let height = 4;
+    let width = 8 + 1;
+    let height = 4 + 1;
 
     let y = 0.75;
     for i in 0..height {
@@ -274,8 +274,8 @@ fn top_grid(vertices: &mut Vec<Vertex>) {
 }
 
 fn bottom_grid(vertices: &mut Vec<Vertex>) {
-    let width = 8;
-    let height = 4;
+    let width = 8 + 1;
+    let height = 4 + 1;
 
     let y = -0.75;
     for i in 0..height {
