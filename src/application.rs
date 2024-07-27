@@ -11,7 +11,7 @@ use crate::window::Window;
 
 mod imp {
     use std::cell::OnceCell;
-    use gtk::{gio, glib};
+    use gtk::glib;
     use gtk::glib::WeakRef;
     use gtk::prelude::{GtkApplicationExt, GtkWindowExt, ObjectExt};
     use libadwaita as adw;
@@ -89,7 +89,7 @@ impl Application {
     fn setup_css(&self) {
         // Load the CSS file and add it to the provider
         let provider = CssProvider::new();
-        provider.load_from_path("resources/css/style.css");
+        provider.load_from_resource("/io/redgradient/MCSkinEditor/style.css");
 
         // Add the provider to the default screen
         gtk::style_context_add_provider_for_display(
