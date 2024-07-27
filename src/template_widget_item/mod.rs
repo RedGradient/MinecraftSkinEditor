@@ -1,4 +1,5 @@
 use gtk::glib;
+use gtk::prelude::MediaFileExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 
 mod imp;
@@ -22,6 +23,6 @@ impl TemplateWidgetItem {
     }
     
     pub fn set_cover(&self, cover: &str) {
-        self.imp().cover.set_file(Some(cover));
+        self.imp().cover.set_from_file(Some(cover));
     }
 }

@@ -418,7 +418,7 @@ impl Window {
                 };
                 let texture_path = file.path().unwrap();
                 let skin_dialog = SkinDialog::new(texture_path, win.clone());
-                skin_dialog.present(&win);
+                skin_dialog.present(Some(&win));
             }));
         }));
     }
