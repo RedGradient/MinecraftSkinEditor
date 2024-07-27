@@ -24,7 +24,6 @@ mod skin_dialog;
 mod application;
 mod command;
 mod utils;
-
 pub const APP_ID: &str = "io.redgradient.MCSkinEditor";
 
 lazy_static! {

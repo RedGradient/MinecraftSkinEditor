@@ -1,3 +1,36 @@
+mod imp {
+    use gtk::{CompositeTemplate, glib, TemplateChild};
+    use gtk::glib::subclass::InitializingObject;
+    use gtk::subclass::prelude::{BoxImpl, CompositeTemplate, CompositeTemplateInitializingExt, ObjectImpl, ObjectSubclass, WidgetImpl};
+    use gtk::subclass::widget::WidgetClassExt;
+
+    #[derive(CompositeTemplate, Default)]
+    #[template(file = "../resources/ui/templates-list.ui")]
+    pub struct TemplateList {
+        #[template_child]
+        pub list: TemplateChild<gtk::FlowBox>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for TemplateList {
+        const NAME: &'static str = "TemplateList";
+        type Type = super::TemplateList;
+        type ParentType = gtk::Box;
+
+        fn class_init(klass: &mut Self::Class) {
+            Self::bind_template(klass);
+        }
+
+        fn instance_init(obj: &InitializingObject<Self>) {
+            obj.init_template();
+        }
+    }
+
+    impl ObjectImpl for TemplateList {}
+    impl WidgetImpl for TemplateList {}
+    impl BoxImpl for TemplateList {}
+}
+
 use std::fs;
 use std::path::Path;
 
@@ -8,8 +41,6 @@ use gtk::subclass::prelude::ObjectSubclassIsExt;
 use crate::template_widget_item::TemplateWidgetItem;
 use crate::TEMPLATES_DIR;
 use crate::window::Window;
-
-mod imp;
 
 
 glib::wrapper! {
@@ -28,7 +59,7 @@ impl TemplateList {
     pub fn new() -> Self {
         glib::Object::new()
     }
-    
+
     pub fn load_list(&self, win: &Window) {
         let png_files = TemplateList::find_png_files(TEMPLATES_DIR.as_path());
         self.imp().list.remove_all();
@@ -57,7 +88,7 @@ impl TemplateList {
             self.imp().list.append(&list_item);
         }
     }
-    
+
     fn find_png_files<P: AsRef<Path>>(path: P) -> Vec<String> {
         let mut png_files = Vec::new();
 
@@ -70,7 +101,7 @@ impl TemplateList {
                             if let Some(path) = path.to_str() {
                                 png_files.push(path.to_string());
                             }
-                            
+
                             // if let Some(file_name) = path.file_name() {
                             //     if let Some(file_name_str) = file_name.to_str() {
                             //         png_files.push(file_name_str.to_string());
@@ -83,7 +114,7 @@ impl TemplateList {
         } else {
             println!("No such dir");
         }
-        
+
         png_files
     }
 }
