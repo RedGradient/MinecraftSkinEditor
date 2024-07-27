@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-glium = { git = "https://github.com/glium/glium.git" }
+glium = "0.34.0"
 gl_loader = "0.1.2"
 epoxy = "0.1.0"
 libloading = "0.8.0"
