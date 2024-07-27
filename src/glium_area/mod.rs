@@ -5,7 +5,6 @@ use std::time::Instant;
 
 use glium::backend::Backend;
 use gtk::{EventControllerScroll, EventControllerScrollFlags, gdk, GestureClick, glib};
-use gtk::gdk::RGBA;
 use gtk::glib::{clone, Propagation};
 use gtk::prelude::{GestureExt, GLAreaExt, IsA, ToggleButtonExt, WidgetExt};
 use gtk::subclass::prelude::{ObjectSubclassExt, ObjectSubclassIsExt};

@@ -1,3 +1,14 @@
+use std::fs;
+use std::path::Path;
+
+use gtk::glib;
+use gtk::prelude::{BoxExt, ButtonExt, WidgetExt};
+use gtk::subclass::prelude::ObjectSubclassIsExt;
+
+use crate::template_widget_item::TemplateWidgetItem;
+use crate::TEMPLATES_DIR;
+use crate::window::Window;
+
 mod imp {
     use gtk::{CompositeTemplate, glib, TemplateChild};
     use gtk::glib::subclass::InitializingObject;
@@ -30,18 +41,6 @@ mod imp {
     impl WidgetImpl for TemplateList {}
     impl BoxImpl for TemplateList {}
 }
-
-use std::fs;
-use std::path::Path;
-
-use gtk::glib;
-use gtk::prelude::{BoxExt, ButtonExt, WidgetExt};
-use gtk::subclass::prelude::ObjectSubclassIsExt;
-
-use crate::template_widget_item::TemplateWidgetItem;
-use crate::TEMPLATES_DIR;
-use crate::window::Window;
-
 
 glib::wrapper! {
     pub struct TemplateList(ObjectSubclass<imp::TemplateList>)

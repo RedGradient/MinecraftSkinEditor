@@ -1,7 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::hash::{Hash, Hasher};
 
-use gtk::{gio, TemplateChild};
+use gtk::gio;
 use gtk::gio::{ActionEntry, Cancellable};
 use gtk::glib;
 use gtk::glib::clone;
@@ -13,6 +13,7 @@ use libadwaita as adw;
 use libadwaita::prelude::AdwDialogExt;
 use rand::Rng;
 
+use crate::{TEMPLATES_DIR, utils};
 use crate::application::Application;
 use crate::command::{Action, Tool};
 use crate::command::DrawingHistory;
@@ -22,7 +23,6 @@ use crate::glium_area::renderer::{ModelCell, Renderer};
 use crate::glium_area::skin_parser::ModelType;
 use crate::skin_dialog::SkinDialog;
 use crate::skin_loader_popover::SkinLoaderPopover;
-use crate::{TEMPLATES_DIR, utils};
 
 mod imp {
     use std::cell::{Cell, RefCell};
@@ -40,7 +40,6 @@ mod imp {
     use crate::command::DrawingHistory;
     use crate::command::Tool;
     use crate::glium_area::GliumArea;
-    use crate::glium_area::skin_parser::ModelType;
     use crate::model_switcher::ModelSwitcher;
     use crate::template_list::TemplateList;
 

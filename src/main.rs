@@ -10,9 +10,6 @@ use gtk::gdk::prelude::*;
 use gtk::prelude::*;
 use lazy_static::lazy_static;
 use libadwaita::prelude::AdwApplicationWindowExt;
-use log::LevelFilter;
-
-use crate::window::Window;
 
 mod glium_area;
 mod model_switcher;

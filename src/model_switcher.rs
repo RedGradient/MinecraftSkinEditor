@@ -1,3 +1,8 @@
+use gtk::glib;
+use gtk::glib::Object;
+use gtk::prelude::ToggleButtonExt;
+use gtk::subclass::prelude::*;
+
 mod imp {
     use gtk::CompositeTemplate;
     use gtk::glib;
@@ -47,12 +52,6 @@ mod imp {
 
     impl WidgetImpl for ModelSwitcher {}
 }
-
-use gtk::glib;
-use gtk::glib::Object;
-use gtk::prelude::ToggleButtonExt;
-use gtk::subclass::prelude::*;
-
 
 glib::wrapper! {
     pub struct ModelSwitcher(ObjectSubclass<imp::ModelSwitcher>)

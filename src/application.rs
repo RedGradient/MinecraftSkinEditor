@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::fs;
 
 use gtk::{CssProvider, gio, glib};
 use gtk::gdk::Display;
@@ -11,11 +11,13 @@ use crate::window::Window;
 
 mod imp {
     use std::cell::OnceCell;
+
     use gtk::glib;
     use gtk::glib::WeakRef;
     use gtk::prelude::{GtkApplicationExt, GtkWindowExt, ObjectExt};
     use libadwaita as adw;
     use libadwaita::subclass::prelude::*;
+
     use crate::window::Window;
 
     #[derive(Default)]

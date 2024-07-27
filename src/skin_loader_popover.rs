@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::io::{Read, Write};
 use std::sync::OnceLock;
-use std::time::Duration;
 
 use bytes::BufMut;
 use gtk::{gio, glib, Orientation};

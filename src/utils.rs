@@ -1,4 +1,3 @@
-use gtk::gdk;
 use gtk::gdk::RGBA;
 use rand::Rng;
 

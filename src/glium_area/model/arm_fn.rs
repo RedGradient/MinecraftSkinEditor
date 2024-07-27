@@ -1,5 +1,3 @@
-use nalgebra_glm as glm;
-
 use crate::glium_area::model::{CELL_COLOR, CELL_SIZE, GRID_COLOR};
 use crate::glium_area::vertex::Vertex;
 
