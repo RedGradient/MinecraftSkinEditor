@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+
 use gtk::prelude::WidgetExt;
 
 use crate::glium_area::body_part::BodyPart;
