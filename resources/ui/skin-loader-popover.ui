@@ -14,12 +14,12 @@
                             <class name="linked"/>
                         </style>
                         <child>
-                            <object class="GtkSearchEntry" id="search_skin_entry">
+                            <object class="GtkSearchEntry" id="nickname_entry">
                                 <property name="placeholder-text">nickname</property>
                             </object>
                         </child>
                         <child>
-                            <object class="GtkButton" id="search_skin_button">
+                            <object class="GtkButton" id="search_button">
                                 <property name="label">Search</property>
                             </object>
                         </child>

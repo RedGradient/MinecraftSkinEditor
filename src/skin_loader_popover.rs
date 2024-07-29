@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::io::{Read, Write};
-use std::sync::OnceLock;
+use std::ops::{Add, Deref, DerefMut};
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use bytes::BufMut;
 use gtk::{gio, glib, Orientation};
@@ -12,31 +14,35 @@ use gtk::subclass::prelude::ObjectSubclassIsExt;
 use image::{DynamicImage, EncodableLayout, GenericImage, GenericImageView};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::channel;
+use tokio::sync::Mutex;
 
 use crate::glium_area::skin_parser::TextureType;
 use crate::utils::guess_model_type;
 use crate::window::Window;
 
 mod imp {
-    use gtk::{glib, TemplateChild};
-    use gtk::CompositeTemplate;
+    use std::cell::Cell;
+    use std::sync::Arc;
+
+    use gtk::{CompositeTemplate, glib, TemplateChild};
     use gtk::subclass::popover::PopoverImpl;
     use gtk::subclass::prelude::{CompositeTemplate, CompositeTemplateInitializingExt, ObjectImpl, ObjectSubclass, WidgetImpl};
     use gtk::subclass::widget::WidgetClassExt;
 
-    use crate::skin_loader_popover::SkinApiClient;
+    use crate::skin_loader_popover::SkinClient;
 
     #[derive(CompositeTemplate, Default)]
     #[template(file = "../resources/ui/skin-loader-popover.ui")]
     pub struct SkinLoaderPopover {
         #[template_child]
-        pub search_skin_button: TemplateChild<gtk::Button>,
+        pub nickname_entry: TemplateChild<gtk::SearchEntry>,
         #[template_child]
-        pub search_skin_entry: TemplateChild<gtk::SearchEntry>,
+        pub search_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub popover_content: TemplateChild<gtk::Box>,
 
-        pub skin_loader_api_client: SkinApiClient,
+        pub client: Arc<SkinClient>,
+        pub is_searching: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -66,26 +72,46 @@ glib::wrapper! {
 
 fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
-    // RUNTIME.get_or_init(|| tokio::runtime::Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("Setting up tokio runtime needs to succeed."))
-    RUNTIME.get_or_init(|| Runtime::new().expect("Setting up tokio runtime needs to succeed."))
+    RUNTIME.get_or_init(|| Runtime::new()
+        .expect("Setting up tokio runtime needs to succeed."))
 }
 
 #[derive(Default)]
-struct SkinApiClient;
-impl SkinApiClient {
-    const URI: &'static str = "https://mc-heads.net/skin";
+struct SkinClient {
+    last_request_time: Arc<Mutex<Option<Instant>>>,
+    cooldown_duration: Arc<Mutex<Duration>>,
+}
+impl SkinClient {
+    const BASE_URL: &'static str = "https://mc-heads.net/skin";
 
-    pub fn new() -> SkinApiClient {
-        SkinApiClient
+    pub async fn set_cooldown(&self, secs: f32) {
+        *self.cooldown_duration.lock().await = Duration::from_secs_f32(secs);
     }
-    
+
+    pub async fn cooldown(&self) {
+        let mut last_request_time = self.last_request_time.lock().await;
+        let cooldown_duration = self.cooldown_duration.lock().await.clone();
+
+        if let Some(last_time) = *last_request_time {
+            let elapsed = last_time.elapsed();
+            if elapsed < cooldown_duration {
+                let remained_cooldown = cooldown_duration - elapsed;
+                tokio::time::sleep(remained_cooldown).await;
+            }
+        }
+
+        // Update last request time
+        *last_request_time = Some(Instant::now());
+    }
+
     pub async fn get_skin(&self, nickname: &str) -> Result<DynamicImage, Box<dyn Error>> {
-        let uri = format!("{}/{}", Self::URI, nickname);
+        self.cooldown().await;
+        let uri = format!("{}/{}", Self::BASE_URL, nickname);
         let url = reqwest::Url::parse(uri.as_str()).unwrap();
-        let mut skin = reqwest::get(url).await?.bytes().await?;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()?;
+        let mut skin = client.get(url).send().await?.bytes().await?;
         let image = image::load_from_memory(skin.as_bytes())?;
         Ok(image)
     }
@@ -94,21 +120,22 @@ impl SkinApiClient {
 impl SkinLoaderPopover {
     pub fn new(win: &Window) -> Self {
         let popover: SkinLoaderPopover = glib::Object::new();
-
+        runtime().block_on(async {
+            popover.imp().client.set_cooldown(1.5).await
+        });
         popover.connect_signals(win);
-
         popover
     }
 
     pub fn connect_signals(&self, win: &Window) {
-        self.imp().search_skin_button.connect_clicked(self.get_search_skin_button_handler(win.clone()));
+        self.imp().search_button.connect_clicked(self.get_search_skin_button_handler(win.clone()));
     }
 
     fn create_texture_button(win: Window, texture: DynamicImage, title: &str) -> gtk::Button {
         let texture_button = gtk::Button::new();
-        let temporary_file = "temporary_file.png";
-        texture.save(temporary_file).unwrap();
         let paintable = {
+            let temporary_file = "temporary_file.png";
+            texture.save(temporary_file).unwrap();
             let f = gio::File::for_path(temporary_file);
             Texture::from_file(&f).unwrap()
         };
@@ -147,36 +174,75 @@ impl SkinLoaderPopover {
 
         texture_button
     }
-    
+
     fn get_search_skin_button_handler(&self, win: Window) -> impl Fn(&gtk::Button) {
         let popover = self.clone();
         move |btn| {
-            let popover = popover.clone();
-            let win = win.clone();
+            if popover.searching() {
+                return
+            }
+            let nickname = match popover.get_nickname() {
+                Some(nickname) => nickname,
+                None => return
+            };
+            popover.set_searching(true);
 
+            popover.clear();
+            popover.add_spinner();
             let (sender, mut receiver) = channel::<Result<DynamicImage, ()>>(10000);
-            let nickname = popover.imp().search_skin_entry.text();
 
-            runtime().spawn(clone!(@strong nickname, @strong sender => async move {
-                let client = SkinApiClient::new();
-                let texture = client.get_skin(nickname.as_str()).await.map_err(|_| ());
-                sender.send(texture).await.expect("The channel needs to be open");
+            // Spawn a task to fetch the skin
+            let client = popover.imp().client.clone();
+            runtime().spawn(clone!(@strong nickname => async move {
+                println!("Fetching the skin...");
+                let response = client.get_skin(nickname.as_str()).await.map_err(|_| ());
+                sender.send(response).await.expect("The channel needs to be open");
             }));
 
-            glib::spawn_future_local(async move {
-                while let Some(texture_result) = receiver.recv().await {
-                    if texture_result.is_err() {
+            glib::spawn_future_local(clone!(@strong win, @strong popover => async move {
+                while let Some(response) = receiver.recv().await {
+                    popover.set_searching(false);
+                    if response.is_err() {
                         println!("Bad request");
+                        popover.clear();
                         return
                     }
-                    let texture = texture_result.unwrap();
+                    let texture = response.unwrap();
                     let texture_button = SkinLoaderPopover::create_texture_button(win.clone(), texture, nickname.as_str());
-                    if let Some(child) = popover.imp().popover_content.last_child() {
-                        popover.imp().popover_content.remove(&child);
-                    }
+                    popover.clear();
                     popover.imp().popover_content.append(&texture_button);
                 }
-            });
+            }));
         }
+    }
+
+    fn get_nickname(&self) -> Option<String> {
+        let text = self.imp().nickname_entry.text();
+        if text.is_empty() {
+            return None
+        }
+        Some(text.to_string())
+    }
+
+    fn searching(&self) -> bool {
+        self.imp().is_searching.get()
+    }
+
+    fn set_searching(&self, searching: bool) {
+        self.imp().is_searching.replace(searching);
+    }
+
+    fn clear(&self) {
+        while let Some(spinner) = self.imp().popover_content.last_child() {
+            self.imp().popover_content.remove(&spinner);
+        }
+    }
+
+    fn add_spinner(&self) {
+        let spinner = gtk::Spinner::new();
+        spinner.set_height_request(40);
+        spinner.set_width_request(40);
+        spinner.set_spinning(true);
+        self.imp().popover_content.append(&spinner);
     }
 }
