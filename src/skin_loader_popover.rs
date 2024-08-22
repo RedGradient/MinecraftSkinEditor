@@ -13,8 +13,7 @@ use gtk::prelude::TextureExt;
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use image::{DynamicImage, EncodableLayout, GenericImage, GenericImageView};
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc::channel;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, oneshot};
 
 use crate::glium_area::skin_parser::TextureType;
 use crate::utils::guess_model_type;
@@ -189,18 +188,19 @@ impl SkinLoaderPopover {
 
             popover.clear();
             popover.add_spinner();
-            let (sender, mut receiver) = channel::<Result<DynamicImage, ()>>(10000);
+
+            let (tx, mut rx) = oneshot::channel::<Result<DynamicImage, ()>>();
 
             // Spawn a task to fetch the skin
             let client = popover.imp().client.clone();
             runtime().spawn(clone!(@strong nickname => async move {
                 println!("Fetching the skin...");
                 let response = client.get_skin(nickname.as_str()).await.map_err(|_| ());
-                sender.send(response).await.expect("The channel needs to be open");
+                tx.send(response).expect("The receiver needs to be open");
             }));
 
             glib::spawn_future_local(clone!(@strong win, @strong popover => async move {
-                while let Some(response) = receiver.recv().await {
+                if let Ok(response) = rx.await {
                     popover.set_searching(false);
                     if response.is_err() {
                         println!("Bad request");
