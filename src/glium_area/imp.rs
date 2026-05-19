@@ -44,10 +44,9 @@ impl WidgetImpl for GliumGLArea {
             )
         }.unwrap();
 
-        let renderer = Renderer::new(context);
-        let renderer = Rc::new(RefCell::new(renderer));
-
-        *self.renderer.borrow_mut() = Some(renderer);
+        let mut renderer = Renderer::new(context);
+        renderer.set_viewport_size(widget.width(), widget.height());
+        *self.renderer.borrow_mut() = Some(Rc::new(RefCell::new(renderer)));
     }
 
     fn unrealize(&self) {
@@ -58,7 +57,12 @@ impl WidgetImpl for GliumGLArea {
 
 impl GLAreaImpl for GliumGLArea {
     fn render(&self, _context: &gtk::gdk::GLContext) -> Propagation {
-        self.renderer.borrow().as_ref().unwrap().borrow_mut().draw();
+        let widget = self.obj();
+        if let Some(renderer) = self.renderer.borrow().as_ref() {
+            let mut renderer = renderer.borrow_mut();
+            renderer.set_viewport_size(widget.width(), widget.height());
+            renderer.draw();
+        }
         Propagation::Proceed
     }
 }

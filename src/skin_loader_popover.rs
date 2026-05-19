@@ -65,8 +65,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct SkinLoaderPopover(ObjectSubclass<imp::SkinLoaderPopover>)
-        @extends gtk::Widget,
-        @implements gtk::Popover;
+        @extends gtk::Widget, gtk::Popover,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Native, gtk::ShortcutManager;
 }
 
 fn runtime() -> &'static Runtime {
@@ -193,13 +193,13 @@ impl SkinLoaderPopover {
 
             // Spawn a task to fetch the skin
             let client = popover.imp().client.clone();
-            runtime().spawn(clone!(@strong nickname => async move {
+            runtime().spawn(clone!(#[strong] nickname, async move {
                 println!("Fetching the skin...");
                 let response = client.get_skin(nickname.as_str()).await.map_err(|_| ());
                 tx.send(response).expect("The receiver needs to be open");
             }));
 
-            glib::spawn_future_local(clone!(@strong win, @strong popover => async move {
+            glib::spawn_future_local(clone!(#[strong] win, #[strong] popover, async move {
                 if let Ok(response) = rx.await {
                     popover.set_searching(false);
                     if response.is_err() {

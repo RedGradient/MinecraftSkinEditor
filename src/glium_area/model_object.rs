@@ -180,11 +180,18 @@ impl ModelObject {
 
     fn get_projection(&self) -> Mat4 {
         let (width, height) = self.context.get_framebuffer_dimensions();
-        let aspect_ratio = width as f32 / height as f32 ;
+        let aspect_ratio = width as f32 / height as f32;
         let fov: f32 = std::f32::consts::PI / 3.0; // 60 degrees
         let near = 0.1;
         let far = 1000.0;
         glm::perspective_rh(aspect_ratio, fov, near, far)
+    }
+
+    /// Same transform as in the vertex shader: view * model.
+    fn world_matrix(&self) -> Mat4 {
+        let rotation_matrix = self.camera.borrow().get_rotation_matrix();
+        let model_matrix = rotation_matrix * self.translation_matrix * self.scale_matrix;
+        self.camera.borrow().get_view_matrix() * model_matrix
     }
 
     pub fn cross(&self, ray: &Ray) -> Option<CrossInfo> {
@@ -210,21 +217,24 @@ impl ModelObject {
     }
 
     fn cross_with_cell(&self, ray: &Ray, face: &[Vertex; 4]) -> Option<(f32, glm::Vec3)> {
-        let transformed_face: [glm::Vec4; 4] = face.iter()
+        let world_matrix = self.world_matrix();
+        let transformed_face: [glm::Vec3; 4] = face
+            .iter()
             .map(|vertex| {
-                let position = glm::Vec4::new(
+                let position = glm::vec4(
                     vertex.position[0],
                     vertex.position[1],
                     vertex.position[2],
-                    1.0);
-                glm::Vec4::from(self.model_matrix * position)
+                    1.0,
+                );
+                (world_matrix * position).xyz()
             })
-            .collect::<Vec<glm::Vec4>>()
+            .collect::<Vec<glm::Vec3>>()
             .try_into()
             .unwrap();
 
-        let triangle1 = [transformed_face[0].xyz(), transformed_face[1].xyz(), transformed_face[2].xyz()];
-        let triangle2 = [transformed_face[0].xyz(), transformed_face[3].xyz(), transformed_face[2].xyz()];
+        let triangle1 = [transformed_face[0], transformed_face[1], transformed_face[2]];
+        let triangle2 = [transformed_face[0], transformed_face[3], transformed_face[2]];
 
         let intersection1 = self.cross_with_triangle(&ray, triangle1);
         if intersection1.is_some() { return intersection1; }

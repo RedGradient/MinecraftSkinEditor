@@ -233,9 +233,11 @@ pub struct Renderer {
     program: Rc<Program>,
     camera: Rc<RefCell<Camera>>,
     mouse_motion: Option<MouseMove>,
-    mouse_move_on_model: bool,
+    /// Widget size in logical pixels (matches GTK gesture coordinates).
+    viewport_width: f32,
+    viewport_height: f32,
     projection_matrix: Mat4,
-    transform_matrix: Mat4,
+    view_matrix: Mat4,
     model_objects: BTreeMap<BodyPart, ModelObject>,
     visible_objects: BTreeSet<BodyPart>,
     current_color: glm::Vec4,
@@ -335,6 +337,7 @@ impl Renderer {
         let program = Rc::new(program);
         let camera = Rc::new(RefCell::new(Camera::new()));
         let projection_matrix = glm::Mat4::identity();
+        let view_matrix = glm::Mat4::identity();
         let model_type = ModelType::Slim;
         let model_objects = Renderer::create_model_objects(
             context.clone(), program.clone(), camera.clone(), &model_type);
@@ -352,9 +355,10 @@ impl Renderer {
             program,
             camera,
             mouse_motion: None,
-            mouse_move_on_model: false,
+            viewport_width: 1.0,
+            viewport_height: 1.0,
             projection_matrix,
-            transform_matrix: Mat4::identity(),
+            view_matrix,
             model_objects,
             visible_objects,
             current_color,
@@ -444,8 +448,41 @@ impl Renderer {
         self.model_type = *model_type;
     }
 
+    pub fn set_viewport_size(&mut self, width: i32, height: i32) {
+        self.viewport_width = width.max(1) as f32;
+        self.viewport_height = height.max(1) as f32;
+    }
+
     pub fn set_grid_show(&mut self, show: bool) {
         self.grid = show;
+    }
+
+    fn projection_matrix_for_aspect(aspect: f32) -> Mat4 {
+        let fov: f32 = std::f32::consts::PI / 3.0;
+        let near = 0.1;
+        let far = 1000.0;
+        glm::perspective_rh(aspect.max(0.001), fov, near, far)
+    }
+
+    fn framebuffer_aspect(context: &Rc<Context>) -> f32 {
+        let (width, height) = context.get_framebuffer_dimensions();
+        width as f32 / height.max(1) as f32
+    }
+
+    fn sync_render_matrices(&mut self) {
+        self.view_matrix = self.camera.borrow().get_view_matrix();
+        self.projection_matrix =
+            Self::projection_matrix_for_aspect(Self::framebuffer_aspect(&self.context));
+    }
+
+    fn sync_pick_matrices(&mut self) {
+        self.view_matrix = self.camera.borrow().get_view_matrix();
+        let aspect = if self.viewport_width > 0.0 && self.viewport_height > 0.0 {
+            self.viewport_width / self.viewport_height
+        } else {
+            Self::framebuffer_aspect(&self.context)
+        };
+        self.projection_matrix = Self::projection_matrix_for_aspect(aspect);
     }
 
     pub fn get_model_type(&self) -> ModelType {
@@ -495,14 +532,7 @@ impl Renderer {
     }
 
     pub fn draw(&mut self) {
-        self.projection_matrix = {
-            let (width, height) = self.context.get_framebuffer_dimensions();
-            let aspect_ratio = width as f32 / height as f32;
-            let fov: f32 = std::f32::consts::PI / 3.0; // 60 degrees
-            let near = 0.1;
-            let far = 1000.0;
-            glm::perspective_rh(aspect_ratio, fov, near, far)
-        };
+        self.sync_render_matrices();
 
         let mut frame = Frame::new(
             self.context.clone(),
@@ -549,10 +579,6 @@ impl Renderer {
         }
     }
 
-    pub fn is_motion_on_empty_area(&self) -> bool {
-        self.mouse_motion.is_some()
-    }
-
     pub fn start_motion(&mut self, curr_x: f32, curr_y: f32) { self.mouse_motion = Some(MouseMove::new(curr_x, curr_y)) }
 
     pub fn stop_motion(&mut self) { self.mouse_motion = None; }
@@ -571,47 +597,32 @@ impl Renderer {
     }
 
     fn screen_to_ndc(&self, screen_x: f32, screen_y: f32) -> (f32, f32) {
-        let dim = self.context.get_framebuffer_dimensions();
-        let (screen_width, screen_height) = (dim.0 as f32 / 2.0, dim.1 as f32 / 2.0);
-        let ndc_x = (2.0 * screen_x / screen_width) - 1.0;
-        let ndc_y = 1.0 - (2.0 * screen_y / screen_height);
+        let ndc_x = (2.0 * screen_x / self.viewport_width) - 1.0;
+        let ndc_y = 1.0 - (2.0 * screen_y / self.viewport_height);
         (ndc_x, ndc_y)
-    }
-
-    fn ndc_to_camera_space(&self, ndc_x: f32, ndc_y: f32) -> glm::Vec3 {
-        let clip_coords = glm::vec4(ndc_x, ndc_y, -1.0, 1.0);
-        let inv_proj_matrix = &self.projection_matrix.try_inverse().unwrap();
-        let eye_coords = inv_proj_matrix * clip_coords;
-
-        eye_coords.xyz() / eye_coords.w
     }
 
     fn ray_to(&self, x: f32, y: f32) -> Ray {
         let (ndc_x, ndc_y) = self.screen_to_ndc(x, y);
-        let world_point = self.ndc_to_camera_space(ndc_x, ndc_y);
-        Ray::new(self.camera.borrow().position, world_point)
-    }
+        let inv_vp = (self.projection_matrix * self.view_matrix)
+            .try_inverse()
+            .expect("view-projection matrix must be invertible");
 
-    pub fn is_model_clicked(&self, x: f32, y: f32) -> bool {
-        // TODO optimization: this function should make bounds intersection check
-        // for this approach we need to have bounds of every model object
+        let unproject = |ndc_z: f32| {
+            let clip = glm::vec4(ndc_x, ndc_y, ndc_z, 1.0);
+            let world = inv_vp * clip;
+            world.xyz() / world.w
+        };
 
-        if let Some(Hover::OnEmptyArea) = self.mouse_hover {
-            return false;
-        }
-        let ray = self.ray_to(x, y);
-
-        // --- CLICK ON THE CUBE ---
-        let info = self.visible_objects
-            .iter().map(|body_part| self.model_objects.get(body_part).unwrap())
-            .flat_map(|obj| obj.cross(&ray))
-            .min_by(|a, b| a.dist.total_cmp(&b.dist));
-
-        info.is_some()
+        let near = unproject(-1.0);
+        let far = unproject(1.0);
+        let direction = glm::normalize(&(far - near));
+        Ray::new(near, direction)
     }
 
     /// Returns the closest clicked cell by screen coordinates.
-    pub fn get_cell(&self, x: f32, y: f32, must_be_colored: bool) -> Option<ModelCell> {
+    pub fn get_cell(&mut self, x: f32, y: f32, must_be_colored: bool) -> Option<ModelCell> {
+        self.sync_pick_matrices();
         let ray = self.ray_to(x, y);
         let mut clicked_cell: Option<(ModelCell, f32)> = None;
         for body_part in self.visible_objects.iter() {
@@ -725,9 +736,7 @@ impl Renderer {
     pub fn set_body_part_active(&mut self, body_part: &BodyPart, visible: bool) {
         if visible {
             self.visible_objects.insert(body_part.clone());
-            self.visible_objects.insert(body_part.clone());
         } else {
-            self.visible_objects.remove(body_part);
             self.visible_objects.remove(body_part);
         }
     }

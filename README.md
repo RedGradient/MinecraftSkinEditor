@@ -11,7 +11,6 @@ $ make build
 ```
 
 ### Known issues
-* Linux: wrong calculation of click on the GLArea
 * macOS: GTK warnings in console: "Broken accounting of active state for widget"
 * 'Wardrobe' and 'Reset' actions do not support undo/redo operations
 * No asking to save before closing the App

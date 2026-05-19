@@ -152,7 +152,7 @@ mod imp {
 glib::wrapper! {
     pub struct Window(ObjectSubclass<imp::Window>)
         @extends gtk::Widget, gtk::Window, gtk::ApplicationWindow, adw::ApplicationWindow,
-        @implements gio::ActionGroup, gio::ActionMap;
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager, gio::ActionGroup, gio::ActionMap;
 }
 
 impl Window {
@@ -218,7 +218,7 @@ impl Window {
 
     fn connect_grid_button(&self) {
         self.imp().grid_toggle.connect_toggled(
-            clone!(@weak self as win => move |btn| {
+            clone!(#[weak(rename_to = win)] self, move |btn| {
                 let gl_area = win.imp().gl_area.get();
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
@@ -229,17 +229,17 @@ impl Window {
     }
 
     fn connect_tools(&self) {
-        self.imp().pencil.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Pencil); }));
-        self.imp().rubber.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Rubber); }));
-        self.imp().color_picker.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); }));
-        self.imp().fill.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Fill); }));
-        self.imp().random_color.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Random); }));
-        self.imp().replace_color.connect_toggled(clone!(@weak self as win => move |btn| { win.imp().current_tool.replace(Tool::Replace); }));
+        self.imp().pencil.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Pencil); }));
+        self.imp().rubber.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Rubber); }));
+        self.imp().color_picker.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); }));
+        self.imp().fill.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Fill); }));
+        self.imp().random_color.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Random); }));
+        self.imp().replace_color.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Replace); }));
     }
 
     fn connect_reset_skin_button(&self) {
         self.imp().reset_skin_button.connect_clicked(
-            clone!(@weak self as win => move |btn| {
+            clone!(#[weak(rename_to = win)] self, move |btn| {
                 let renderer = win.imp().gl_area.renderer().unwrap();
                 let mut renderer: RefMut<Renderer> = renderer.borrow_mut();
                 renderer.reset_skin();
@@ -251,7 +251,7 @@ impl Window {
     }
 
     fn connect_wardrobe(&self) {
-        self.imp().wardrobe.connect_toggled(clone!(@weak self as win => move |btn| {
+        self.imp().wardrobe.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| {
             // --- toggle left_box ---
             win.imp().left_box.set_visible(!btn.is_active());
 
@@ -278,7 +278,10 @@ impl Window {
         let gl_area = self.imp().gl_area.get();
 
         model_switcher.inner_layer_toggle().connect_toggled(clone!(
-            @weak model_switcher, @weak gl_area => move |cb| {
+            #[weak]
+            model_switcher,
+            #[weak]
+            gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 let ms = model_switcher.clone();
@@ -294,7 +297,10 @@ impl Window {
         ));
 
         model_switcher.outer_layer_toggle().connect_toggled(clone!(
-            @weak model_switcher, @weak gl_area => move |cb| {
+            #[weak]
+            model_switcher,
+            #[weak]
+            gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 let ms = model_switcher.clone();
@@ -312,7 +318,10 @@ impl Window {
         ));
 
         model_switcher.head().connect_toggled(clone!(
-            @weak model_switcher, @weak gl_area => move |cb| {
+            #[weak]
+            model_switcher,
+            #[weak]
+            gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 if model_switcher.inner_layer_toggle().is_active() {
@@ -325,7 +334,10 @@ impl Window {
             }
         ));
         model_switcher.torso().connect_toggled(clone!(
-            @weak model_switcher, @weak gl_area => move |cb| {
+            #[weak]
+            model_switcher,
+            #[weak]
+            gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 if model_switcher.inner_layer_toggle().is_active() {
@@ -338,7 +350,10 @@ impl Window {
             }
         ));
         model_switcher.left_arm().connect_toggled(clone!(
-            @weak model_switcher, @weak gl_area => move |cb| {
+            #[weak]
+            model_switcher,
+            #[weak]
+            gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 if model_switcher.inner_layer_toggle().is_active() {
@@ -351,7 +366,10 @@ impl Window {
             }
         ));
         model_switcher.right_arm().connect_toggled(clone!(
-            @weak model_switcher, @weak gl_area => move |cb| {
+            #[weak]
+            model_switcher,
+            #[weak]
+            gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 if model_switcher.inner_layer_toggle().is_active() {
@@ -364,7 +382,7 @@ impl Window {
             }
         ));
         model_switcher.left_leg().connect_toggled(
-            clone!(@weak model_switcher, @weak gl_area => move |cb| {
+            clone!(#[weak] model_switcher, #[weak] gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 if model_switcher.inner_layer_toggle().is_active() {
@@ -377,7 +395,7 @@ impl Window {
             }
         ));
         model_switcher.right_leg().connect_toggled(
-            clone!(@weak model_switcher, @weak gl_area => move |cb| {
+            clone!(#[weak] model_switcher, #[weak] gl_area, move |cb| {
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 if model_switcher.inner_layer_toggle().is_active() {
@@ -390,7 +408,7 @@ impl Window {
             }
         ));
         model_switcher.imp().model_type_selector.connect_selected_notify(
-            clone!(@weak self as win => move |dropdown| {
+            clone!(#[weak(rename_to = win)] self, move |dropdown| {
                 if win.imp().opening_new_skin.take() {
                     win.imp().opening_new_skin.replace(false);
                     return
@@ -408,9 +426,9 @@ impl Window {
     }
 
     fn connect_open_button(&self) {
-        self.imp().open_button.connect_clicked(clone!(@weak self as win => move |_| {
+        self.imp().open_button.connect_clicked(clone!(#[weak(rename_to = win)] self, move |_| {
             let mut file_dialog = gtk::FileDialog::builder().title("Open a skin").build();
-            file_dialog.open(Some(&win), Cancellable::NONE, clone!(@weak win => move |file| {
+            file_dialog.open(Some(&win), Cancellable::NONE, clone!(#[weak] win, move |file| {
                 let file = match file {
                     Ok(file) => file,
                     Err(_) => return,
@@ -424,7 +442,7 @@ impl Window {
     
     fn connect_save_button(&self) {
         let action = ActionEntry::builder("action")
-            .activate(clone!(@weak self as win => move |_, _, _| {
+            .activate(clone!(#[weak(rename_to = win)] self, move |_, _, _| {
                 let renderer = win.imp().gl_area.renderer().unwrap();
                 let renderer: Ref<Renderer> = renderer.borrow();
                 let img = renderer.export_texture();
@@ -441,10 +459,10 @@ impl Window {
             .build();
         self.add_action_entries([action]);
 
-        self.imp().save_button.connect_clicked(clone!(@weak self as win => move |btn| {
+        self.imp().save_button.connect_clicked(clone!(#[weak(rename_to = win)] self, move |btn| {
             let mut file_dialog = gtk::FileDialog::builder().title("Save a skin").build();
             file_dialog.set_initial_name(Some("untitled.png"));
-            file_dialog.save(Some(&win), Cancellable::NONE, clone!(@weak win => move |file| {
+            file_dialog.save(Some(&win), Cancellable::NONE, clone!(#[weak] win, move |file| {
                 let file = match file {
                     Ok(file) => file,
                     Err(_) => return,

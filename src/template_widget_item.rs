@@ -44,8 +44,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct TemplateWidgetItem(ObjectSubclass<imp::TemplateWidgetItem>)
-        @extends gtk::Widget,
-        @implements gtk::Button;
+        @extends gtk::Widget, gtk::Button,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Actionable;
 }
 
 impl TemplateWidgetItem {

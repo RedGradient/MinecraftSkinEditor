@@ -38,7 +38,9 @@ impl Camera {
     }
 
     pub fn update_distance(&mut self, distance: f32) {
-        self.position.z = self.position.z - distance;
+        const MIN_DISTANCE: f32 = 1.0;
+        const MAX_DISTANCE: f32 = 12.0;
+        self.position.z = (self.position.z - distance).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 
     pub fn get_view_matrix(&self) -> glm::Mat4 {

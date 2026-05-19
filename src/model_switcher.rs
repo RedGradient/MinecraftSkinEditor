@@ -55,7 +55,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct ModelSwitcher(ObjectSubclass<imp::ModelSwitcher>)
-        @extends gtk::Widget;
+        @extends gtk::Widget,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl ModelSwitcher {

@@ -1,5 +1,6 @@
 use gtk::gdk::RGBA;
 use rand::Rng;
+use rand::distr::Alphanumeric;
 
 use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
@@ -169,7 +170,7 @@ fn move_slim_to_classic_by_side(
 pub fn generate_random_filename() -> String {
     let mut rng = rand::thread_rng();
     let random_bytes: Vec<u8> = std::iter::repeat(())
-        .map(|()| rng.sample(rand::distributions::Alphanumeric))
+        .map(|()| rng.sample(Alphanumeric))
         .take(10)
         .collect();
 

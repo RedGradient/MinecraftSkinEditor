@@ -59,8 +59,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct SkinDialog(ObjectSubclass<imp::SkinDialog>)
-        @extends gtk::Widget,
-        @implements adw::Dialog;
+        @extends gtk::Widget, adw::Dialog,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::ShortcutManager;
 }
 
 impl SkinDialog {
