@@ -11,7 +11,7 @@ use nalgebra_glm::Mat4;
 use crate::glium_area::camera::Camera;
 use crate::glium_area::cross_info::CrossInfo;
 use crate::glium_area::model::generate_indexes;
-use crate::glium_area::pick::{cell_range_for_face, local_hit_distance_on_ray, ray_local_aabb, world_ray_to_local};
+use crate::glium_area::pick::{local_hit_distance_on_ray, ray_local_aabb, world_ray_to_local};
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::CubeSideColors;
 use crate::glium_area::vertex::Vertex;
@@ -217,17 +217,17 @@ impl ModelObject {
     pub fn cross(&self, ray: &Ray) -> Option<CrossInfo> {
         let object_matrix = self.object_world_matrix();
         let (local_origin, local_direction) = world_ray_to_local(ray, &object_matrix)?;
-        let (t_local, face) = ray_local_aabb(
+        let (t_local, _) = ray_local_aabb(
             local_origin,
             local_direction,
             self.local_bounds_min,
             self.local_bounds_max,
         )?;
 
-        let cell_range = cell_range_for_face(&self.cells_per_side, face);
+        let cell_count = self.vertexes.len() / 4;
         let mut closest_intersection: Option<CrossInfo> = None;
 
-        for cell_index in cell_range {
+        for cell_index in 0..cell_count {
             let vertex_offset = cell_index * 4;
             let face_vertices = [
                 self.vertexes[vertex_offset],
@@ -272,8 +272,9 @@ impl ModelObject {
             glm::vec3(face[3].position[0], face[3].position[1], face[3].position[2]),
         ];
 
-        let triangle1 = [positions[0], positions[1], positions[2]];
-        let triangle2 = [positions[0], positions[3], positions[2]];
+        // Winding matches `model::generate_indexes` (clockwise, culled in the renderer).
+        let triangle1 = [positions[1], positions[0], positions[2]];
+        let triangle2 = [positions[2], positions[0], positions[3]];
 
         let mut closest = None;
         for triangle in [triangle1, triangle2] {
