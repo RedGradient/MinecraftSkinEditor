@@ -72,14 +72,14 @@ impl TemplateList {
             let w = win.clone();
             let list_item = TemplateWidgetItem::new(file.as_str(), title);
             list_item.connect_clicked(move |item| {
-                let renderer = w.imp().gl_area.renderer();
+                let renderer = w.gl_area().renderer();
                 let mut renderer = renderer.as_ref().unwrap().borrow_mut();
                 let model_type = renderer.get_model_type();
                 let result = renderer.load_texture(file.clone().as_str(), &model_type, true);
                 match result {
                     Ok(_) => {
                         println!("Template successfully loaded");
-                        w.imp().gl_area.queue_draw();
+                        w.request_viewport_redraw();
                     },
                     Err(_) => println!("Error loading template")
                 }

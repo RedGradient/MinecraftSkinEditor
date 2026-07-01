@@ -1,5 +1,4 @@
-use gtk::prelude::{GestureExt, ToggleButtonExt, WidgetExt};
-use gtk::subclass::prelude::ObjectSubclassIsExt;
+use gtk::prelude::{GestureExt, WidgetExt};
 
 use crate::command::*;
 use crate::command::Tool;
@@ -109,7 +108,7 @@ impl GliumArea {
                 return;
             }
 
-            match win.imp().current_tool.get() {
+            match win.current_tool() {
                 Tool::Pencil => Self::handle_pencil(gl_area.clone(), cell, win.clone()),
                 Tool::Rubber => Self::handle_rubber(gl_area.clone(), cell, win.clone()),
                 Tool::Fill => Self::handle_fill(gl_area.clone(), cell, win.clone()),
@@ -129,13 +128,13 @@ impl GliumArea {
         let mut renderer = renderer.borrow_mut();
         if let Some(cell) = renderer.get_cell(x, y, true) {
             let rgba = crate::utils::f32_to_rgba(cell.color);
-            win.imp().color_button.set_rgba(&rgba);
-            win.imp().pencil.set_active(true);
+            win.set_active_color(&rgba);
+            win.select_pencil_tool();
         }
     }
 
     fn handle_pencil(gl_area: GliumArea, cell: ModelCell, win: Window) {
-        let color = rgba_to_f32(win.imp().color_button.rgba());
+        let color = rgba_to_f32(win.active_color());
         let trying_draw_same_cell = win
             .get_last_modified_cell()
             .is_some_and(|last| last.same_cell(cell));
@@ -149,13 +148,13 @@ impl GliumArea {
         if cell.color[3] == 0.0 {
             return;
         }
-        let rgba = win.imp().color_button.rgba();
+        let rgba = win.active_color();
         let new_color = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
         win.add_command_to_history(Box::new(Replace::new(gl_area, cell.color, new_color)));
     }
 
     fn handle_random(gl_area: GliumArea, cell: ModelCell, win: Window) {
-        let color = rgba_to_f32(win.imp().color_button.rgba());
+        let color = rgba_to_f32(win.active_color());
         let trying_draw_same_cell = win
             .get_last_modified_cell()
             .is_some_and(|last| last.same_cell(cell));
@@ -185,7 +184,7 @@ impl GliumArea {
             .borrow()
             .get_side_cells(&cell.body_part, cell.cell_index)
             .unwrap();
-        let new_color = rgba_to_f32(win.imp().color_button.rgba());
+        let new_color = rgba_to_f32(win.active_color());
         win.add_command_to_history(Box::new(Fill::new(
             gl_area,
             cell.body_part,

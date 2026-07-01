@@ -86,10 +86,9 @@ impl SkinDialog {
             ModelType::Classic => 1,
         };
         move |btn| {
-            window.imp().opening_new_skin.replace(true);
-            window.imp().model_switcher.imp().model_type_selector.set_selected(item_num);
+            window.begin_skin_import(item_num);
 
-            let renderer = window.imp().gl_area.renderer().unwrap();
+            let renderer = window.gl_area().renderer().unwrap();
             let mut renderer = renderer.borrow_mut();
 
             let texture_path = dialog.imp().texture_path.take()
@@ -97,12 +96,8 @@ impl SkinDialog {
             let texture_path = texture_path.to_str().unwrap();
 
             let _ = renderer.load_texture(texture_path, &model_type, false);
-            window.imp().drawing_history.borrow()
-                .as_ref()
-                .expect("Drawing history is not initialized")
-                .borrow_mut()
-                .clear();
-            window.imp().gl_area.queue_draw();
+            window.clear_drawing_history();
+            window.request_viewport_redraw();
             dialog.close();
         }
     }

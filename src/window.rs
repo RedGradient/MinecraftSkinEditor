@@ -16,8 +16,8 @@ use rand::Rng;
 use crate::{TEMPLATES_DIR, utils};
 use crate::application::Application;
 use crate::command::{Action, Tool};
-use crate::command::DrawingHistory;
 use crate::command::Tool::*;
+use crate::editor_session::EditorSession;
 use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::renderer::{ModelCell, Renderer};
 use crate::glium_area::skin_parser::ModelType;
@@ -37,8 +37,7 @@ mod imp {
     use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 
     use crate::APP_ID;
-    use crate::command::DrawingHistory;
-    use crate::command::Tool;
+    use crate::editor_session::EditorSession;
     use crate::glium_area::GliumArea;
     use crate::model_switcher::ModelSwitcher;
     use crate::template_list::TemplateList;
@@ -91,10 +90,8 @@ mod imp {
         #[template_child]
         pub save_as_template_button: TemplateChild<gtk::Button>,
 
-        pub current_tool: Cell<Tool>,
-        pub is_tool_active: Cell<bool>,
         pub opening_new_skin: Cell<bool>,
-        pub drawing_history: RefCell<Option<RefCell<DrawingHistory>>>,
+        pub editor: RefCell<Option<EditorSession>>,
     }
 
     #[glib::object_subclass]
@@ -107,11 +104,11 @@ mod imp {
             Self::bind_template(klass);
 
             klass.install_action("win.undo", None, move |win, _, _| {
-                win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().undo();
+                win.editor_mut().undo();
             });
 
             klass.install_action("win.redo", None, move |win, _, _| {
-                win.imp().drawing_history.borrow().as_ref().unwrap().borrow_mut().redo();
+                win.editor_mut().redo();
             });
 
             klass.install_action("win.about", None, move |win, _, _| {
@@ -185,9 +182,7 @@ impl Window {
         
         let gl_area = self.imp().gl_area.get();
         gl_area.setup(self);
-        // initialize drawing history
-        self.imp().drawing_history.replace(Some(RefCell::new(DrawingHistory::new(gl_area))));
-
+        self.imp().editor.replace(Some(EditorSession::new(gl_area)));
         self.set_tool_active(true);
     }
 
@@ -219,33 +214,33 @@ impl Window {
     fn connect_grid_button(&self) {
         self.imp().grid_toggle.connect_toggled(
             clone!(#[weak(rename_to = win)] self, move |btn| {
-                let gl_area = win.imp().gl_area.get();
+                let gl_area = win.gl_area();
                 let renderer = gl_area.renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 renderer.set_grid_show(btn.is_active());
-                gl_area.queue_draw();
+                win.request_viewport_redraw();
             })
         );
     }
 
     fn connect_tools(&self) {
-        self.imp().pencil.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Pencil); }));
-        self.imp().rubber.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Rubber); }));
-        self.imp().color_picker.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::ColorPicker); }));
-        self.imp().fill.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Fill); }));
-        self.imp().random_color.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Random); }));
-        self.imp().replace_color.connect_toggled(clone!(#[weak(rename_to = win)] self, move |btn| { win.imp().current_tool.replace(Tool::Replace); }));
+        self.imp().pencil.connect_toggled(clone!(#[weak(rename_to = win)] self, move |_| { win.editor_mut().set_tool(Tool::Pencil); }));
+        self.imp().rubber.connect_toggled(clone!(#[weak(rename_to = win)] self, move |_| { win.editor_mut().set_tool(Tool::Rubber); }));
+        self.imp().color_picker.connect_toggled(clone!(#[weak(rename_to = win)] self, move |_| { win.editor_mut().set_tool(Tool::ColorPicker); }));
+        self.imp().fill.connect_toggled(clone!(#[weak(rename_to = win)] self, move |_| { win.editor_mut().set_tool(Tool::Fill); }));
+        self.imp().random_color.connect_toggled(clone!(#[weak(rename_to = win)] self, move |_| { win.editor_mut().set_tool(Tool::Random); }));
+        self.imp().replace_color.connect_toggled(clone!(#[weak(rename_to = win)] self, move |_| { win.editor_mut().set_tool(Tool::Replace); }));
     }
 
     fn connect_reset_skin_button(&self) {
         self.imp().reset_skin_button.connect_clicked(
             clone!(#[weak(rename_to = win)] self, move |btn| {
-                let renderer = win.imp().gl_area.renderer().unwrap();
+                let renderer = win.gl_area().renderer().unwrap();
                 let mut renderer: RefMut<Renderer> = renderer.borrow_mut();
                 renderer.reset_skin();
                 drop(renderer);
                 win.imp().grid_toggle.set_active(true);
-                win.imp().gl_area.queue_draw();
+                win.request_viewport_redraw();
             })
         );
     }
@@ -413,7 +408,7 @@ impl Window {
                     win.imp().opening_new_skin.replace(false);
                     return
                 }
-                let renderer = win.imp().gl_area.renderer().unwrap();
+                let renderer = win.gl_area().renderer().unwrap();
                 let mut renderer = renderer.borrow_mut();
                 let model_type = match dropdown.selected() {
                     0 => ModelType::Slim,
@@ -421,7 +416,7 @@ impl Window {
                     _ => panic!("Unknown model type"),
                 };
                 renderer.reset_model_type(&model_type);
-                win.imp().gl_area.queue_draw();
+                win.request_viewport_redraw();
         }));
     }
 
@@ -443,7 +438,7 @@ impl Window {
     fn connect_save_button(&self) {
         let action = ActionEntry::builder("action")
             .activate(clone!(#[weak(rename_to = win)] self, move |_, _, _| {
-                let renderer = win.imp().gl_area.renderer().unwrap();
+                let renderer = win.gl_area().renderer().unwrap();
                 let renderer: Ref<Renderer> = renderer.borrow();
                 let img = renderer.export_texture();
                 let random_filename = utils::generate_random_filename();
@@ -468,7 +463,7 @@ impl Window {
                     Err(_) => return,
                 };
 
-                let renderer = win.imp().gl_area.renderer().unwrap();
+                let renderer = win.gl_area().renderer().unwrap();
                 let renderer = renderer.borrow();
 
                 let path = match file.path() {
@@ -495,35 +490,73 @@ impl Window {
         }));
     }
     
+    pub fn editor(&self) -> std::cell::Ref<'_, EditorSession> {
+        std::cell::Ref::map(self.imp().editor.borrow(), |editor| {
+            editor.as_ref().expect("EditorSession is not initialized")
+        })
+    }
+
+    pub fn editor_mut(&self) -> std::cell::RefMut<'_, EditorSession> {
+        std::cell::RefMut::map(self.imp().editor.borrow_mut(), |editor| {
+            editor.as_mut().expect("EditorSession is not initialized")
+        })
+    }
+
+    pub fn gl_area(&self) -> crate::glium_area::GliumArea {
+        self.editor().viewport().clone()
+    }
+
+    pub fn current_tool(&self) -> Tool {
+        self.editor().tool()
+    }
+
+    pub fn active_color(&self) -> gtk::gdk::RGBA {
+        self.imp().color_button.rgba()
+    }
+
+    pub fn set_active_color(&self, rgba: &gtk::gdk::RGBA) {
+        self.imp().color_button.set_rgba(rgba);
+    }
+
+    pub fn select_pencil_tool(&self) {
+        self.imp().pencil.set_active(true);
+        self.editor_mut().set_tool(Tool::Pencil);
+    }
+
+    pub fn begin_skin_import(&self, model_type_index: u32) {
+        self.imp().opening_new_skin.replace(true);
+        self.imp()
+            .model_switcher
+            .imp()
+            .model_type_selector
+            .set_selected(model_type_index);
+    }
+
+    pub fn clear_drawing_history(&self) {
+        self.editor_mut().clear_history();
+    }
+
+    pub fn request_viewport_redraw(&self) {
+        self.editor().request_redraw();
+    }
+
     pub fn get_last_modified_cell(&self) -> Option<ModelCell> {
-        self.imp().drawing_history.borrow()
-            .as_ref()
-            .expect("Drawing history is not initialized")
-            .borrow()
-            .get_last_modified()
+        self.editor().last_modified_cell()
     }
 
     pub fn set_last_modified(&self, cell: ModelCell) {
-        self.imp().drawing_history.borrow()
-            .as_ref()
-            .expect("Drawing history is not initialized")
-            .borrow_mut()
-            .set_last_modified(cell);
+        self.editor_mut().set_last_modified(cell);
     }
 
     pub fn add_command_to_history(&self, command: Box<dyn Action>) {
-        self.imp().drawing_history.borrow()
-            .as_ref()
-            .expect("Drawing history is not initialized")
-            .borrow_mut()
-            .add_command(command);
+        self.editor_mut().add_command(command);
     }
 
     fn set_tool_active(&self, active: bool) {
-        self.imp().is_tool_active.replace(active);
+        self.editor_mut().set_tools_enabled(active);
     }
 
     pub fn is_tool_active(&self) -> bool {
-        self.imp().is_tool_active.get()
+        self.editor().tools_enabled()
     }
 }

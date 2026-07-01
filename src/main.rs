@@ -20,6 +20,7 @@ mod skin_loader_popover;
 mod skin_dialog;
 mod application;
 mod command;
+mod editor_session;
 mod utils;
 pub const APP_ID: &str = "io.redgradient.MCSkinEditor";
 
