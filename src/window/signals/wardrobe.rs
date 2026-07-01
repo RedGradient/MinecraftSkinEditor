@@ -12,7 +12,7 @@ pub(super) fn connect(win: &Window) {
         win.imp().template_list.set_visible(btn.is_active());
 
         if btn.is_active() {
-            win.imp().template_list.load_list(&win.clone());
+            win.refresh_template_list();
         }
 
         win.set_tool_active(!btn.is_active());

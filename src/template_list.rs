@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use gtk::glib;
-use gtk::prelude::{BoxExt, ButtonExt, WidgetExt};
+use gtk::prelude::{ButtonExt, WidgetExt};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 
 use crate::template_widget_item::TemplateWidgetItem;
@@ -71,17 +71,10 @@ impl TemplateList {
 
             let w = win.clone();
             let list_item = TemplateWidgetItem::new(file.as_str(), title);
-            list_item.connect_clicked(move |item| {
-                let renderer = w.gl_area().renderer();
-                let mut renderer = renderer.as_ref().unwrap().borrow_mut();
-                let model_type = renderer.get_model_type();
-                let result = renderer.load_texture(file.clone().as_str(), &model_type, true);
-                match result {
-                    Ok(_) => {
-                        println!("Template successfully loaded");
-                        w.request_viewport_redraw();
-                    },
-                    Err(_) => println!("Error loading template")
+            list_item.connect_clicked(move |_| {
+                match w.load_template(file.as_str()) {
+                    Ok(_) => println!("Template successfully loaded"),
+                    Err(_) => println!("Error loading template"),
                 }
             });
             self.imp().list.append(&list_item);

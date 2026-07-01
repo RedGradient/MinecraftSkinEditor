@@ -11,6 +11,7 @@ use crate::command::{Action, Tool};
 use crate::editor_host::EditorHost;
 use crate::editor_session::EditorSession;
 use crate::glium_area::renderer::ModelCell;
+use crate::glium_area::skin_parser::{ModelType, TextureLoadError, TextureType};
 use crate::skin_loader_popover::SkinLoaderPopover;
 
 mod imp;
@@ -97,6 +98,56 @@ impl Window {
 
     pub fn request_viewport_redraw(&self) {
         self.editor().request_redraw();
+    }
+
+    pub fn open_skin_file(&self, path: &str, model_type: ModelType) -> Result<(), TextureLoadError> {
+        let item_num = match model_type {
+            ModelType::Slim => 0,
+            ModelType::Classic => 1,
+        };
+        self.begin_skin_import(item_num);
+        self.editor_mut()
+            .load_skin_from_path(path, &model_type, false)?;
+        self.clear_drawing_history();
+        self.request_viewport_redraw();
+        Ok(())
+    }
+
+    pub fn load_skin_from_image(
+        &self,
+        image: &image::DynamicImage,
+        model_type: ModelType,
+        texture_type: TextureType,
+    ) -> Result<(), TextureLoadError> {
+        self.editor_mut()
+            .load_skin_from_image(image, model_type, texture_type, false)?;
+        self.request_viewport_redraw();
+        Ok(())
+    }
+
+    pub fn load_template(&self, path: &str) -> Result<(), TextureLoadError> {
+        self.editor_mut().load_template(path)?;
+        self.request_viewport_redraw();
+        Ok(())
+    }
+
+    pub fn reset_skin(&self) {
+        self.editor_mut().reset_skin();
+        self.set_grid_visible(true);
+    }
+
+    pub fn set_grid_visible(&self, active: bool) {
+        self.editor_mut().set_grid_visible(active);
+        self.imp().grid_toggle.set_active(active);
+        self.request_viewport_redraw();
+    }
+
+    pub fn export_texture(&self) -> image::ImageBuffer<image::Rgba<u8>, Vec<u8>> {
+        self.editor().export_texture()
+    }
+
+    pub fn refresh_template_list(&self) {
+        self.imp().template_list.load_list(self);
     }
 
     pub(super) fn set_tool_active(&self, active: bool) {

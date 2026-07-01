@@ -7,9 +7,7 @@ use crate::window::Window;
 
 pub(super) fn connect(win: &Window) {
     win.imp().grid_toggle.connect_toggled(clone!(#[weak(rename_to = win)] win, move |btn| {
-        let renderer = win.gl_area().renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-        renderer.set_grid_show(btn.is_active());
+        win.editor_mut().set_grid_visible(btn.is_active());
         win.request_viewport_redraw();
     }));
 }

@@ -7,7 +7,6 @@ use libadwaita::prelude::AdwDialogExt;
 
 use crate::utils;
 use crate::{TEMPLATES_DIR};
-use crate::glium_area::renderer::Renderer;
 use crate::skin_dialog::SkinDialog;
 use crate::window::Window;
 
@@ -34,15 +33,13 @@ fn connect_open(win: &Window) {
 fn connect_save(win: &Window) {
     let action = ActionEntry::builder("action")
         .activate(clone!(#[weak(rename_to = win)] win, move |_, _, _| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let renderer: std::cell::Ref<Renderer> = renderer.borrow();
-            let img = renderer.export_texture();
+            let img = win.export_texture();
             let random_filename = utils::generate_random_filename();
             let path = TEMPLATES_DIR.as_path().join(random_filename);
             match img.save(&path) {
                 Ok(_) => {
                     println!("Saved as template at {:?}", path.as_path());
-                    win.imp().template_list.load_list(&win.clone());
+                    win.refresh_template_list();
                 }
                 Err(error) => println!("{}", error.to_string()),
             }
@@ -59,9 +56,6 @@ fn connect_save(win: &Window) {
                 Err(_) => return,
             };
 
-            let renderer = win.gl_area().renderer().unwrap();
-            let renderer = renderer.borrow();
-
             let path = match file.path() {
                 Some(path) => path,
                 None => {
@@ -77,7 +71,7 @@ fn connect_save(win: &Window) {
                 }
             };
 
-            let imgbuf = renderer.export_texture();
+            let imgbuf = win.export_texture();
             match imgbuf.save(path) {
                 Ok(_) => println!("Saved at {}", path),
                 Err(error) => println!("{}", error.to_string()),

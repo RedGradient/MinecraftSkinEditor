@@ -1,10 +1,8 @@
-use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use gtk::glib;
-use gtk::prelude::{BoxExt, ButtonExt, EditableExt, WidgetExt};
+use gtk::prelude::{ButtonExt, WidgetExt};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use image::EncodableLayout;
 use libadwaita as adw;
 use libadwaita::prelude::AdwDialogExt;
 
@@ -81,24 +79,16 @@ impl SkinDialog {
     
     fn get_handler(&self, window: Window, model_type: ModelType) -> impl Fn(&gtk::Button) {
         let dialog = self.clone();
-        let item_num = match model_type {
-            ModelType::Slim => 0,
-            ModelType::Classic => 1,
-        };
-        move |btn| {
-            window.begin_skin_import(item_num);
-
-            let renderer = window.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-
+        move |_| {
             let texture_path = dialog.imp().texture_path.take()
                 .expect("Texture path is not set. This can happen if the dialog was not created using 'new()' method");
             let texture_path = texture_path.to_str().unwrap();
 
-            let _ = renderer.load_texture(texture_path, &model_type, false);
-            window.clear_drawing_history();
-            window.request_viewport_redraw();
-            dialog.close();
+            if let Err(error) = window.open_skin_file(texture_path, model_type) {
+                println!("Error loading skin: {:?}", error);
+            } else {
+                dialog.close();
+            }
         }
     }
 }

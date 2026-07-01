@@ -2,10 +2,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::WidgetExt;
+use image::{DynamicImage, ImageBuffer, Rgba};
 
 use crate::command::{Action, DrawingHistory, Tool};
 use crate::glium_area::GliumArea;
 use crate::glium_area::renderer::{ModelCell, Renderer};
+use crate::glium_area::skin_parser::{ModelType, TextureLoadError, TextureType};
 
 pub struct EditorSession {
     viewport: GliumArea,
@@ -75,5 +77,56 @@ impl EditorSession {
 
     pub fn renderer(&self) -> Option<Rc<RefCell<Renderer>>> {
         self.viewport.renderer()
+    }
+
+    pub fn load_skin_from_path(
+        &mut self,
+        path: &str,
+        model_type: &ModelType,
+        ignore_transparent: bool,
+    ) -> Result<(), TextureLoadError> {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        let mut renderer = renderer.borrow_mut();
+        renderer.load_texture(path, model_type, ignore_transparent)
+    }
+
+    pub fn load_skin_from_image(
+        &mut self,
+        image: &DynamicImage,
+        model_type: ModelType,
+        texture_type: TextureType,
+        ignore_transparent: bool,
+    ) -> Result<(), TextureLoadError> {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        let mut renderer = renderer.borrow_mut();
+        renderer.load_texture_from_bytes(
+            image,
+            model_type,
+            texture_type,
+            ignore_transparent,
+        )
+    }
+
+    pub fn load_template(&mut self, path: &str) -> Result<(), TextureLoadError> {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        let model_type = renderer.borrow().get_model_type();
+        let mut renderer = renderer.borrow_mut();
+        renderer.load_texture(path, &model_type, true)
+    }
+
+    pub fn reset_skin(&mut self) {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        renderer.borrow_mut().reset_skin();
+    }
+
+    pub fn set_grid_visible(&mut self, visible: bool) {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        renderer.borrow_mut().set_grid_show(visible);
+    }
+
+    pub fn export_texture(&self) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        let exported = renderer.borrow().export_texture();
+        exported
     }
 }

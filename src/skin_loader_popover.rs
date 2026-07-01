@@ -153,22 +153,16 @@ impl SkinLoaderPopover {
         texture_button.set_child(Some(&inner_box));
 
         texture_button.connect_clicked(move |_| {
-            let renderer = win.gl_area().renderer();
-            let mut renderer = renderer.as_ref().unwrap().borrow_mut();
             let model_type = guess_model_type(texture.as_bytes());
             let texture_type = match texture.dimensions() {
                 (64, 64) => TextureType::Normal,
                 (64, 32) => TextureType::Legacy,
                 _ => panic!("Wrong texture dimensions")
             };
-            let load_result = renderer.load_texture_from_bytes(
-                &texture, model_type.unwrap(), texture_type, false);
-            if load_result.is_err() {
-                println!("Error loading texture: {:?}", load_result.unwrap_err());
-                return
+            match win.load_skin_from_image(&texture, model_type.unwrap(), texture_type) {
+                Ok(_) => println!("Texture loaded"),
+                Err(error) => println!("Error loading texture: {:?}", error),
             }
-            win.request_viewport_redraw();
-            println!("Texture loaded");
         });
 
         texture_button
