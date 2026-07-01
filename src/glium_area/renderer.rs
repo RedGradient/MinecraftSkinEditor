@@ -23,7 +23,8 @@ use crate::glium_area::cube_side::CubeSide;
 use crate::glium_area::hover::Hover;
 use crate::glium_area::model::{
     body_grid, body_vertices, cuboid_3x12x4, cuboid_4x12x4, grid_3x12x4, grid_4x12x4, head_grid,
-    head_vertices,
+    head_vertices, BODY_CELLS_PER_SIDE, HEAD_CELLS_PER_SIDE, LIMB_3_CELLS_PER_SIDE,
+    LIMB_4_CELLS_PER_SIDE,
 };
 use crate::glium_area::model_object::{ModelObject, ModelObjectType};
 use crate::glium_area::mouse_move::MouseMove;
@@ -261,14 +262,14 @@ impl Renderer {
     fn create_model_objects(context: Rc<Context>, program: Rc<Program>, camera: Rc<RefCell<Camera>>, model_type: &ModelType) -> BTreeMap<BodyPart, ModelObject> {
         let factory = ModelObjectFactory::new(context.clone(), program.clone(), camera.clone());
 
-        let head = factory.create_body_part(head_vertices(), &glm::vec3(0., 1.5, 0.), &INNER_SCALE);
-        let body = factory.create_body_part(body_vertices(), &glm::vec3(0., 0.25, 0.), &INNER_SCALE);
-        let right_leg = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(-0.25, -1.25, 0.), &INNER_SCALE);
-        let left_leg = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(0.25, -1.25, 0.), &INNER_SCALE);
-        let head_outer = factory.create_body_part(head_vertices(), &glm::vec3(0.0, 1.5, 0.0), &OUTER_SCALE);
-        let body_outer = factory.create_body_part(body_vertices(), &glm::vec3(0., 0.25, 0.), &OUTER_SCALE.scale(1.001));
-        let right_leg_outer = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(-0.25, -1.25, 0.), &OUTER_SCALE.scale(1.0005));
-        let left_leg_outer = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(0.25, -1.25, 0.), &OUTER_SCALE);
+        let head = factory.create_body_part(head_vertices(), &glm::vec3(0., 1.5, 0.), &INNER_SCALE, HEAD_CELLS_PER_SIDE);
+        let body = factory.create_body_part(body_vertices(), &glm::vec3(0., 0.25, 0.), &INNER_SCALE, BODY_CELLS_PER_SIDE);
+        let right_leg = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(-0.25, -1.25, 0.), &INNER_SCALE, LIMB_4_CELLS_PER_SIDE);
+        let left_leg = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(0.25, -1.25, 0.), &INNER_SCALE, LIMB_4_CELLS_PER_SIDE);
+        let head_outer = factory.create_body_part(head_vertices(), &glm::vec3(0.0, 1.5, 0.0), &OUTER_SCALE, HEAD_CELLS_PER_SIDE);
+        let body_outer = factory.create_body_part(body_vertices(), &glm::vec3(0., 0.25, 0.), &OUTER_SCALE.scale(1.001), BODY_CELLS_PER_SIDE);
+        let right_leg_outer = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(-0.25, -1.25, 0.), &OUTER_SCALE.scale(1.0005), LIMB_4_CELLS_PER_SIDE);
+        let left_leg_outer = factory.create_body_part(cuboid_4x12x4(), &glm::vec3(0.25, -1.25, 0.), &OUTER_SCALE, LIMB_4_CELLS_PER_SIDE);
 
         let mut model_objects: BTreeMap<BodyPart, ModelObject> = BTreeMap::new();
         model_objects.insert(BodyPart::Head, head);
@@ -376,15 +377,15 @@ impl Renderer {
         let factory = ModelObjectFactory::new(context.clone(), program.clone(), camera.clone());
         let mut arms: BTreeMap<BodyPart, ModelObject> = BTreeMap::new();
 
-        let (vertexes, translation_x) = match model_type {
-            ModelType::Classic => (cuboid_4x12x4(), 0.75),
-            ModelType::Slim => (cuboid_3x12x4(), 0.6875),
+        let (vertexes, translation_x, cells_per_side) = match model_type {
+            ModelType::Classic => (cuboid_4x12x4(), 0.75, LIMB_4_CELLS_PER_SIDE),
+            ModelType::Slim => (cuboid_3x12x4(), 0.6875, LIMB_3_CELLS_PER_SIDE),
         };
 
-        let right_arm = factory.create_body_part(vertexes, &glm::Vec3::new(-translation_x, 0.25, 0.), &INNER_SCALE);
-        let left_arm = factory.create_body_part(vertexes, &glm::Vec3::new(translation_x, 0.25, 0.), &INNER_SCALE);
-        let right_arm_outer = factory.create_body_part(vertexes, &glm::Vec3::new(-translation_x, 0.25, 0.), &OUTER_SCALE);
-        let left_arm_outer = factory.create_body_part(vertexes, &glm::Vec3::new(translation_x, 0.25, 0.), &OUTER_SCALE);
+        let right_arm = factory.create_body_part(vertexes, &glm::Vec3::new(-translation_x, 0.25, 0.), &INNER_SCALE, cells_per_side);
+        let left_arm = factory.create_body_part(vertexes, &glm::Vec3::new(translation_x, 0.25, 0.), &INNER_SCALE, cells_per_side);
+        let right_arm_outer = factory.create_body_part(vertexes, &glm::Vec3::new(-translation_x, 0.25, 0.), &OUTER_SCALE, cells_per_side);
+        let left_arm_outer = factory.create_body_part(vertexes, &glm::Vec3::new(translation_x, 0.25, 0.), &OUTER_SCALE, cells_per_side);
 
         arms.insert(BodyPart::RightArm, right_arm);
         arms.insert(BodyPart::LeftArm, left_arm);
@@ -476,13 +477,7 @@ impl Renderer {
     }
 
     fn sync_pick_matrices(&mut self) {
-        self.view_matrix = self.camera.borrow().get_view_matrix();
-        let aspect = if self.viewport_width > 0.0 && self.viewport_height > 0.0 {
-            self.viewport_width / self.viewport_height
-        } else {
-            Self::framebuffer_aspect(&self.context)
-        };
-        self.projection_matrix = Self::projection_matrix_for_aspect(aspect);
+        self.sync_render_matrices();
     }
 
     pub fn get_model_type(&self) -> ModelType {
@@ -621,51 +616,60 @@ impl Renderer {
     }
 
     /// Returns the closest clicked cell by screen coordinates.
+    /// When an outer-layer part is visible, its inner counterpart is excluded from
+    /// picking so overlay edits do not bleed into the body layer underneath.
     pub fn get_cell(&mut self, x: f32, y: f32, must_be_colored: bool) -> Option<ModelCell> {
         self.sync_pick_matrices();
         let ray = self.ray_to(x, y);
-        let mut clicked_cell: Option<(ModelCell, f32)> = None;
-        for body_part in self.visible_objects.iter() {
+        let pickable = self.pickable_parts();
+        self.pick_cell_on_parts(&ray, &pickable, must_be_colored)
+    }
+
+    fn pickable_parts(&self) -> Vec<BodyPart> {
+        self.visible_objects
+            .iter()
+            .copied()
+            .filter(|part| {
+                part.outer_counterpart()
+                    .is_none_or(|outer| !self.visible_objects.contains(&outer))
+            })
+            .collect()
+    }
+
+    fn pick_cell_on_parts(
+        &self,
+        ray: &Ray,
+        parts: &[BodyPart],
+        must_be_colored: bool,
+    ) -> Option<ModelCell> {
+        let mut closest: Option<(ModelCell, f32)> = None;
+
+        for body_part in parts {
             let model_object = self.model_objects.get(body_part).unwrap();
-            let cross = match model_object.cross(&ray) {
+            let cross = match model_object.cross(ray) {
                 Some(value) => value,
-                None => continue
+                None => continue,
             };
 
-            if must_be_colored {
-                // check if the color is transparent
-                let alpha = model_object.get_pixel(cross.cell_index)[3];
-                if alpha == 0.0 {
-                    continue;
-                }
+            if must_be_colored && model_object.get_pixel(cross.cell_index)[3] == 0.0 {
+                continue;
             }
 
-            match clicked_cell {
-                Some((_, other_cross_distance)) => {
-                    if cross.dist < other_cross_distance {
-                        let cell = ModelCell {
-                            body_part: body_part.clone(),
-                            cell_index: cross.cell_index,
-                            color: model_object.get_pixel(cross.cell_index),
-                        };
-                        clicked_cell = Some((cell, cross.dist))
-                    }
-                },
-                None => {
-                    let cell = ModelCell {
-                        body_part: body_part.clone(),
-                        cell_index: cross.cell_index,
-                        color: model_object.get_pixel(cross.cell_index),
-                    };
-                    clicked_cell = Some((cell, cross.dist));
-                }
+            let cell = ModelCell {
+                body_part: *body_part,
+                cell_index: cross.cell_index,
+                color: model_object.get_pixel(cross.cell_index),
+            };
+
+            let is_closer = closest
+                .as_ref()
+                .is_none_or(|(_, other_dist)| cross.dist < *other_dist);
+            if is_closer {
+                closest = Some((cell, cross.dist));
             }
         }
 
-        return match clicked_cell {
-            Some((cell, _)) => Some(cell),
-            None => None
-        };
+        closest.map(|(cell, _)| cell)
     }
 
     pub fn set_cell(&mut self, cell: &ModelCell) {
@@ -753,7 +757,13 @@ impl ModelObjectFactory {
         ModelObjectFactory { context, program, camera }
     }
 
-    fn create_body_part(&self, vertexes: &[Vertex], translation: &glm::Vec3, scale: &glm::Vec3) -> ModelObject {
+    fn create_body_part(
+        &self,
+        vertexes: &[Vertex],
+        translation: &glm::Vec3,
+        scale: &glm::Vec3,
+        cells_per_side: [usize; 6],
+    ) -> ModelObject {
         ModelObject::new(
             self.context.clone(),
             self.program.clone(),
@@ -761,7 +771,8 @@ impl ModelObjectFactory {
             vertexes,
             ModelObjectType::Model,
             translation,
-            scale
+            scale,
+            cells_per_side,
         )
     }
 
@@ -773,7 +784,8 @@ impl ModelObjectFactory {
             vertexes,
             ModelObjectType::Grid,
             translation,
-            scale
+            scale,
+            [0; 6],
         )
     }
 }

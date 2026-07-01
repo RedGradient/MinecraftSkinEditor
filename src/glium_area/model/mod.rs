@@ -3,7 +3,8 @@ mod obj_loader;
 
 pub use meshes::{
     body_grid, body_vertices, cuboid_3x12x4, cuboid_4x12x4, grid_3x12x4, grid_4x12x4, head_grid,
-    head_vertices,
+    head_vertices, BODY_CELLS_PER_SIDE, HEAD_CELLS_PER_SIDE, LIMB_3_CELLS_PER_SIDE,
+    LIMB_4_CELLS_PER_SIDE,
 };
 
 #[cfg(test)]

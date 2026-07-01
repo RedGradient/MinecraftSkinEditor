@@ -50,9 +50,9 @@ impl GliumArea {
                     renderer.mouse_move(x, y);
                     renderer.update_camera();
                     drop(renderer);
+                    gl_area.queue_draw();
                 }
             }
-            gl_area.queue_draw();
         });
 
         let gl_area = self.clone();
@@ -106,7 +106,6 @@ impl GliumArea {
             drop(renderer);
 
             if !host.tools_enabled() {
-                gl_area.queue_draw();
                 return;
             }
 
@@ -118,8 +117,6 @@ impl GliumArea {
                 Tool::Replace => Self::handle_replace(gl_area.clone(), cell, &host),
                 Tool::ColorPicker => Self::handle_color_picker(&gl_area, x, y, &host),
             }
-
-            gl_area.queue_draw();
         }
     }
 

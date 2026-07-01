@@ -11,6 +11,7 @@ use nalgebra_glm::Mat4;
 use crate::glium_area::camera::Camera;
 use crate::glium_area::cross_info::CrossInfo;
 use crate::glium_area::model::generate_indexes;
+use crate::glium_area::pick::{cell_range_for_face, local_hit_distance_on_ray, ray_local_aabb, world_ray_to_local};
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::CubeSideColors;
 use crate::glium_area::vertex::Vertex;
@@ -29,6 +30,10 @@ pub struct ModelObject {
     model_matrix: Mat4,
     translation_matrix: Mat4,
     scale_matrix: Mat4,
+
+    local_bounds_min: glm::Vec3,
+    local_bounds_max: glm::Vec3,
+    cells_per_side: [usize; 6],
 }
 
 #[derive(Clone, Copy)]
@@ -45,19 +50,22 @@ impl ModelObject {
         vertexes: &[Vertex],
         model_object_type: ModelObjectType,
         translation_vector: &glm::Vec3,
-        scale_vector: &glm::Vec3
-    ) -> Self
-    {
+        scale_vector: &glm::Vec3,
+        cells_per_side: [usize; 6],
+    ) -> Self {
         let model_matrix = glm::Mat4::identity();
         let translation_matrix = glm::translate(&glm::Mat4::identity(), translation_vector);
-        let scale_matrix = glm::scale(&glm::Mat4::identity(),scale_vector);
+        let scale_matrix = glm::scale(&glm::Mat4::identity(), scale_vector);
         let index_buffer = Self::create_index_buffer(context.clone(), vertexes, model_object_type);
         let draw_parameters = Self::create_draw_parameters(model_object_type);
         let vertexes = vertexes.to_vec();
         let vertex_buffer = VertexBuffer::dynamic(&context, &vertexes).expect("Cannot create vertex buffer");
+        let (local_bounds_min, local_bounds_max) = Self::compute_bounds(&vertexes);
 
         ModelObject {
-            context, program, camera,
+            context,
+            program,
+            camera,
             model_matrix,
             draw_parameters,
             vertexes,
@@ -65,7 +73,22 @@ impl ModelObject {
             index_buffer,
             translation_matrix,
             scale_matrix,
+            local_bounds_min,
+            local_bounds_max,
+            cells_per_side,
         }
+    }
+
+    fn compute_bounds(vertexes: &[Vertex]) -> (glm::Vec3, glm::Vec3) {
+        let mut min = glm::vec3(f32::MAX, f32::MAX, f32::MAX);
+        let mut max = glm::vec3(f32::MIN, f32::MIN, f32::MIN);
+        for vertex in vertexes {
+            for axis in 0..3 {
+                min[axis] = min[axis].min(vertex.position[axis]);
+                max[axis] = max[axis].max(vertex.position[axis]);
+            }
+        }
+        (min, max)
     }
 
     fn create_index_buffer(context: Rc<Context>, vertexes: &[Vertex], model_object_type: ModelObjectType) -> IndexBuffer<u16> {
@@ -73,27 +96,24 @@ impl ModelObject {
             ModelObjectType::Model => {
                 let data = generate_indexes(vertexes.len() / 4);
                 IndexBuffer::new(&context, PrimitiveType::TrianglesList, &data).expect("Cannot create index buffer")
-            },
+            }
             ModelObjectType::Grid => {
                 let data: Vec<u16> = (0..vertexes.len() as u16).collect();
                 IndexBuffer::new(&context, PrimitiveType::LinesList, &data).unwrap()
             }
         }
     }
+
     fn create_draw_parameters(model_object_type: ModelObjectType) -> DrawParameters<'static> {
         match model_object_type {
-            ModelObjectType::Model => {
-                DrawParameters {
-                    blend: glium::Blend::alpha_blending(),
-                    backface_culling: glium::BackfaceCullingMode::CullClockwise,
-                    ..Default::default()
-                }
+            ModelObjectType::Model => DrawParameters {
+                blend: glium::Blend::alpha_blending(),
+                backface_culling: glium::BackfaceCullingMode::CullClockwise,
+                ..Default::default()
             },
-            ModelObjectType::Grid => {
-                DrawParameters {
-                    ..Default::default()
-                }
-            }
+            ModelObjectType::Grid => DrawParameters {
+                ..Default::default()
+            },
         }
     }
 
@@ -107,37 +127,44 @@ impl ModelObject {
         let view_matrix = self.camera.borrow().get_view_matrix();
         let projection_matrix = self.get_projection();
 
-        let uniforms = uniform!{
+        let uniforms = uniform! {
             model_matrix: *self.model_matrix.as_ref(),
             view_matrix: *view_matrix.as_ref(),
             perspective_matrix: *projection_matrix.as_ref(),
         };
-        frame.draw(
-            &self.vertex_buffer,
-            &self.index_buffer,
-            &self.program,
-            &uniforms,
-            &self.draw_parameters,
-        ).unwrap();
+        frame
+            .draw(
+                &self.vertex_buffer,
+                &self.index_buffer,
+                &self.program,
+                &uniforms,
+                &self.draw_parameters,
+            )
+            .unwrap();
     }
 
     pub fn paint(&mut self, cell: usize, color: [f32; 4]) {
         let index = cell * 4;
-        self.vertexes.get_mut(index + 0).unwrap().color = color;
-        self.vertexes.get_mut(index + 1).unwrap().color = color;
-        self.vertexes.get_mut(index + 2).unwrap().color = color;
-        self.vertexes.get_mut(index + 3).unwrap().color = color;
-
-        self.vertex_buffer.write(&self.vertexes);
+        for offset in 0..4 {
+            self.vertexes[index + offset].color = color;
+        }
+        self.write_cell_vertices(index);
     }
-    
+
     pub fn clear(&mut self) {
         for vertex in self.vertexes.iter_mut() {
             vertex.color = [0.0, 0.0, 0.0, 0.0];
         }
         self.vertex_buffer.write(&self.vertexes);
     }
-    
+
+    fn write_cell_vertices(&self, index: usize) {
+        self.vertex_buffer
+            .slice(index..index + 4)
+            .unwrap()
+            .write(&self.vertexes[index..index + 4]);
+    }
+
     pub fn set_pixels(&mut self, color_map: &CubeSideColors, ignore_transparent: bool) {
         let mut cell = 0;
         for pixels in color_map.values() {
@@ -154,16 +181,16 @@ impl ModelObject {
     }
 
     pub fn get_pixel(&self, cell: usize) -> [f32; 4] {
-        self.vertexes.get(4 * cell).unwrap().color
+        self.vertexes[4 * cell].color
     }
-    
+
     pub fn get_pixels(&self) -> Vec<[f32; 4]> {
         self.vertexes
             .chunks(4)
-            .map(|chunk| chunk[0].color )
+            .map(|chunk| chunk[0].color)
             .collect()
     }
-    
+
     fn u8_to_f32_pixel(pixel: &Rgba<u8>) -> [f32; 4] {
         [
             f32::from(pixel[0]) / 255.0,
@@ -173,113 +200,130 @@ impl ModelObject {
         ]
     }
 
-    fn u8_color_to_f32_color(u8_color: u8) -> f32 {
-        let f32_color = f32::from(u8_color) / 255.0;
-        return f32_color;
-    }
-
     fn get_projection(&self) -> Mat4 {
         let (width, height) = self.context.get_framebuffer_dimensions();
         let aspect_ratio = width as f32 / height as f32;
-        let fov: f32 = std::f32::consts::PI / 3.0; // 60 degrees
+        let fov: f32 = std::f32::consts::PI / 3.0;
         let near = 0.1;
         let far = 1000.0;
         glm::perspective_rh(aspect_ratio, fov, near, far)
     }
 
-    /// Same transform as in the vertex shader: view * model.
-    fn world_matrix(&self) -> Mat4 {
+    fn object_world_matrix(&self) -> Mat4 {
         let rotation_matrix = self.camera.borrow().get_rotation_matrix();
-        let model_matrix = rotation_matrix * self.translation_matrix * self.scale_matrix;
-        self.camera.borrow().get_view_matrix() * model_matrix
+        rotation_matrix * self.translation_matrix * self.scale_matrix
     }
 
     pub fn cross(&self, ray: &Ray) -> Option<CrossInfo> {
-        let cells: Vec<[Vertex; 4]> = self.vertexes
-            .chunks(4)
-            .map(|chunk| { [chunk[0], chunk[1], chunk[2], chunk[3]] })
-            .collect();
+        let object_matrix = self.object_world_matrix();
+        let (local_origin, local_direction) = world_ray_to_local(ray, &object_matrix)?;
+        let (t_local, face) = ray_local_aabb(
+            local_origin,
+            local_direction,
+            self.local_bounds_min,
+            self.local_bounds_max,
+        )?;
 
+        let cell_range = cell_range_for_face(&self.cells_per_side, face);
         let mut closest_intersection: Option<CrossInfo> = None;
-        for (cell_index, cell) in cells.iter().enumerate() {
-            if let Some((dist, _)) = self.cross_with_cell(ray, cell) {
-                if let Some(closest) = closest_intersection {
-                    if dist < closest.dist {
-                        closest_intersection = Some(CrossInfo { cell_index, dist });
-                    }
-                } else {
+
+        for cell_index in cell_range {
+            let vertex_offset = cell_index * 4;
+            let face_vertices = [
+                self.vertexes[vertex_offset],
+                self.vertexes[vertex_offset + 1],
+                self.vertexes[vertex_offset + 2],
+                self.vertexes[vertex_offset + 3],
+            ];
+
+            if let Some(local_t) =
+                self.cross_with_cell_local(local_origin, local_direction, &face_vertices, t_local)
+            {
+                let dist = local_hit_distance_on_ray(
+                    &object_matrix,
+                    local_origin,
+                    local_direction,
+                    local_t,
+                    ray,
+                );
+                if closest_intersection
+                    .as_ref()
+                    .is_none_or(|closest| dist < closest.dist)
+                {
                     closest_intersection = Some(CrossInfo { cell_index, dist });
                 }
             }
         }
-        
+
         closest_intersection
     }
 
-    fn cross_with_cell(&self, ray: &Ray, face: &[Vertex; 4]) -> Option<(f32, glm::Vec3)> {
-        let world_matrix = self.world_matrix();
-        let transformed_face: [glm::Vec3; 4] = face
-            .iter()
-            .map(|vertex| {
-                let position = glm::vec4(
-                    vertex.position[0],
-                    vertex.position[1],
-                    vertex.position[2],
-                    1.0,
-                );
-                (world_matrix * position).xyz()
-            })
-            .collect::<Vec<glm::Vec3>>()
-            .try_into()
-            .unwrap();
+    fn cross_with_cell_local(
+        &self,
+        origin: glm::Vec3,
+        direction: glm::Vec3,
+        face: &[Vertex; 4],
+        min_t: f32,
+    ) -> Option<f32> {
+        let positions = [
+            glm::vec3(face[0].position[0], face[0].position[1], face[0].position[2]),
+            glm::vec3(face[1].position[0], face[1].position[1], face[1].position[2]),
+            glm::vec3(face[2].position[0], face[2].position[1], face[2].position[2]),
+            glm::vec3(face[3].position[0], face[3].position[1], face[3].position[2]),
+        ];
 
-        let triangle1 = [transformed_face[0], transformed_face[1], transformed_face[2]];
-        let triangle2 = [transformed_face[0], transformed_face[3], transformed_face[2]];
+        let triangle1 = [positions[0], positions[1], positions[2]];
+        let triangle2 = [positions[0], positions[3], positions[2]];
 
-        let intersection1 = self.cross_with_triangle(&ray, triangle1);
-        if intersection1.is_some() { return intersection1; }
-
-        let intersection2 = self.cross_with_triangle(&ray, triangle2);
-        if intersection2.is_some() { return intersection2; }
-
-        None
+        let mut closest = None;
+        for triangle in [triangle1, triangle2] {
+            if let Some(dist) = self.cross_with_triangle_local(origin, direction, triangle) {
+                if dist + EPSILON < min_t {
+                    continue;
+                }
+                if closest.is_none_or(|best| dist < best) {
+                    closest = Some(dist);
+                }
+            }
+        }
+        closest
     }
 
-    fn cross_with_triangle(&self, ray: &Ray, triangle: [glm::Vec3; 3]) -> Option<(f32, glm::Vec3)> {
-        // Moller-Trumbore algorithm
+    fn cross_with_triangle_local(
+        &self,
+        origin: glm::Vec3,
+        direction: glm::Vec3,
+        triangle: [glm::Vec3; 3],
+    ) -> Option<f32> {
         let edge1 = triangle[1] - triangle[0];
         let edge2 = triangle[2] - triangle[0];
-        let h = ray.direction.cross(&edge2);
-        let a = edge1.dot(&h);
+        let normal = edge1.cross(&edge2);
+        if normal.dot(&direction) >= 0.0 {
+            return None;
+        }
 
+        let h = direction.cross(&edge2);
+        let a = edge1.dot(&h);
         if a.abs() < 0.000001 {
             return None;
         }
 
         let f = 1.0 / a;
-        let s = ray.origin - triangle[0];
+        let s = origin - triangle[0];
         let u = f * s.dot(&h);
-        if u < 0.0 || u > 1.0 {
+        if !(0.0..=1.0).contains(&u) {
             return None;
         }
 
         let q = s.cross(&edge1);
-        let v = f * ray.direction.dot(&q);
+        let v = f * direction.dot(&q);
         if v < 0.0 || u + v > 1.0 {
             return None;
         }
 
         let t = f * edge2.dot(&q);
-
-        if t > 0.0 {
-            let cross_point = glm::Vec3::new(
-                ray.origin.x + t * ray.direction.x,
-                ray.origin.y + t * ray.direction.y,
-                ray.origin.z + t * ray.direction.z
-            );
-            Some((t, cross_point))
-        } else {
-            None
-        }
+        if t > 0.0 { Some(t) } else { None }
     }
 }
+
+const EPSILON: f32 = 1e-4;

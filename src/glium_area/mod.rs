@@ -18,6 +18,7 @@ pub(crate) mod model_object;
 mod model;
 pub mod skin_parser;
 mod ray;
+mod pick;
 pub mod hover;
 mod mouse_move;
 pub mod body_part;

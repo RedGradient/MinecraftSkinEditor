@@ -77,3 +77,8 @@ pub fn grid_4x12x4() -> &'static [Vertex] {
 pub fn grid_3x12x4() -> &'static [Vertex] {
     &library().limb_3x12x4_grid
 }
+
+pub const HEAD_CELLS_PER_SIDE: [usize; 6] = [64, 64, 64, 64, 64, 64];
+pub const BODY_CELLS_PER_SIDE: [usize; 6] = [96, 48, 96, 48, 32, 32];
+pub const LIMB_4_CELLS_PER_SIDE: [usize; 6] = [48, 48, 48, 48, 16, 16];
+pub const LIMB_3_CELLS_PER_SIDE: [usize; 6] = [36, 48, 36, 48, 12, 12];
