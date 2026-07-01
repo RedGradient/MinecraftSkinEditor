@@ -71,8 +71,7 @@ fn connect_save(win: &Window) {
                 }
             };
 
-            let imgbuf = win.export_texture();
-            match imgbuf.save(path) {
+            match win.save_skin_to_path(path) {
                 Ok(_) => println!("Saved at {}", path),
                 Err(error) => println!("{}", error.to_string()),
             }

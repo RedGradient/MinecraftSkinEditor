@@ -3,8 +3,10 @@ use gtk::glib::clone;
 use gtk::prelude::{ComboBoxExt, ToggleButtonExt};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 
+use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::body_part::BodyPart::*;
 use crate::glium_area::skin_parser::ModelType;
+use crate::model_switcher::ModelSwitcher;
 use crate::window::Window;
 
 pub(super) fn connect(win: &Window) {
@@ -15,18 +17,7 @@ pub(super) fn connect(win: &Window) {
         model_switcher,
         #[weak(rename_to = win)]
         win,
-        move |_| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            let inner_is_active = model_switcher.inner_layer_toggle().is_active();
-            renderer.set_body_part_active(&Head, inner_is_active && model_switcher.head().is_active());
-            renderer.set_body_part_active(&Torso, inner_is_active && model_switcher.torso().is_active());
-            renderer.set_body_part_active(&RightArm, inner_is_active && model_switcher.right_arm().is_active());
-            renderer.set_body_part_active(&LeftArm, inner_is_active && model_switcher.left_arm().is_active());
-            renderer.set_body_part_active(&RightLeg, inner_is_active && model_switcher.right_leg().is_active());
-            renderer.set_body_part_active(&LeftLeg, inner_is_active && model_switcher.left_leg().is_active());
-            win.request_viewport_redraw();
-        }
+        move |_| sync_inner_layer(&win, &model_switcher)
     ));
 
     model_switcher.outer_layer_toggle().connect_toggled(clone!(
@@ -34,145 +25,81 @@ pub(super) fn connect(win: &Window) {
         model_switcher,
         #[weak(rename_to = win)]
         win,
-        move |_| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            let outer_is_active = model_switcher.outer_layer_toggle().is_active();
-            renderer.set_body_part_active(&HeadOuter, outer_is_active && model_switcher.head().is_active());
-            renderer.set_body_part_active(&TorsoOuter, outer_is_active && model_switcher.torso().is_active());
-            renderer.set_body_part_active(&RightArmOuter, outer_is_active && model_switcher.right_arm().is_active());
-            renderer.set_body_part_active(&LeftArmOuter, outer_is_active && model_switcher.left_arm().is_active());
-            renderer.set_body_part_active(&RightLegOuter, outer_is_active && model_switcher.right_leg().is_active());
-            renderer.set_body_part_active(&LeftLegOuter, outer_is_active && model_switcher.left_leg().is_active());
-            win.request_viewport_redraw();
-        }
+        move |_| sync_outer_layer(&win, &model_switcher)
     ));
 
-    model_switcher.head().connect_toggled(clone!(
-        #[weak]
-        model_switcher,
-        #[weak(rename_to = win)]
-        win,
-        move |cb| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            if model_switcher.inner_layer_toggle().is_active() {
-                renderer.set_body_part_active(&Head, cb.is_active());
-            }
-            if model_switcher.outer_layer_toggle().is_active() {
-                renderer.set_body_part_active(&HeadOuter, cb.is_active());
-            }
-            win.request_viewport_redraw();
-        }
-    ));
-
-    model_switcher.torso().connect_toggled(clone!(
-        #[weak]
-        model_switcher,
-        #[weak(rename_to = win)]
-        win,
-        move |cb| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            if model_switcher.inner_layer_toggle().is_active() {
-                renderer.set_body_part_active(&Torso, cb.is_active());
-            }
-            if model_switcher.outer_layer_toggle().is_active() {
-                renderer.set_body_part_active(&TorsoOuter, cb.is_active());
-            }
-            win.request_viewport_redraw();
-        }
-    ));
-
-    model_switcher.left_arm().connect_toggled(clone!(
-        #[weak]
-        model_switcher,
-        #[weak(rename_to = win)]
-        win,
-        move |cb| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            if model_switcher.inner_layer_toggle().is_active() {
-                renderer.set_body_part_active(&LeftArm, cb.is_active());
-            }
-            if model_switcher.outer_layer_toggle().is_active() {
-                renderer.set_body_part_active(&LeftArmOuter, cb.is_active());
-            }
-            win.request_viewport_redraw();
-        }
-    ));
-
-    model_switcher.right_arm().connect_toggled(clone!(
-        #[weak]
-        model_switcher,
-        #[weak(rename_to = win)]
-        win,
-        move |cb| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            if model_switcher.inner_layer_toggle().is_active() {
-                renderer.set_body_part_active(&RightArm, cb.is_active());
-            }
-            if model_switcher.outer_layer_toggle().is_active() {
-                renderer.set_body_part_active(&RightArmOuter, cb.is_active());
-            }
-            win.request_viewport_redraw();
-        }
-    ));
-
-    model_switcher.left_leg().connect_toggled(clone!(
-        #[weak]
-        model_switcher,
-        #[weak(rename_to = win)]
-        win,
-        move |cb| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            if model_switcher.inner_layer_toggle().is_active() {
-                renderer.set_body_part_active(&LeftLeg, cb.is_active());
-            }
-            if model_switcher.outer_layer_toggle().is_active() {
-                renderer.set_body_part_active(&LeftLegOuter, cb.is_active());
-            }
-            win.request_viewport_redraw();
-        }
-    ));
-
-    model_switcher.right_leg().connect_toggled(clone!(
-        #[weak]
-        model_switcher,
-        #[weak(rename_to = win)]
-        win,
-        move |cb| {
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
-            if model_switcher.inner_layer_toggle().is_active() {
-                renderer.set_body_part_active(&RightLeg, cb.is_active());
-            }
-            if model_switcher.outer_layer_toggle().is_active() {
-                renderer.set_body_part_active(&RightLegOuter, cb.is_active());
-            }
-            win.request_viewport_redraw();
-        }
-    ));
+    connect_part_toggle(&model_switcher, win.clone(), Head, HeadOuter, |ms| ms.head());
+    connect_part_toggle(&model_switcher, win.clone(), Torso, TorsoOuter, |ms| ms.torso());
+    connect_part_toggle(&model_switcher, win.clone(), LeftArm, LeftArmOuter, |ms| ms.left_arm());
+    connect_part_toggle(&model_switcher, win.clone(), RightArm, RightArmOuter, |ms| ms.right_arm());
+    connect_part_toggle(&model_switcher, win.clone(), LeftLeg, LeftLegOuter, |ms| ms.left_leg());
+    connect_part_toggle(&model_switcher, win.clone(), RightLeg, RightLegOuter, |ms| ms.right_leg());
 
     model_switcher.imp().model_type_selector.connect_selected_notify(clone!(
         #[weak(rename_to = win)]
         win,
         move |dropdown| {
-            if win.imp().opening_new_skin.take() {
-                win.imp().opening_new_skin.replace(false);
+            if win.consume_skin_import_model_change() {
                 return;
             }
-            let renderer = win.gl_area().renderer().unwrap();
-            let mut renderer = renderer.borrow_mut();
             let model_type = match dropdown.selected() {
                 0 => ModelType::Slim,
                 1 => ModelType::Classic,
                 _ => panic!("Unknown model type"),
             };
-            renderer.reset_model_type(&model_type);
-            win.request_viewport_redraw();
+            win.change_model_type(model_type);
+        }
+    ));
+}
+
+fn sync_inner_layer(win: &Window, model_switcher: &ModelSwitcher) {
+    let layer_active = model_switcher.inner_layer_toggle().is_active();
+    win.set_body_parts_visible(&[
+        (&Head, layer_active && model_switcher.head().is_active()),
+        (&Torso, layer_active && model_switcher.torso().is_active()),
+        (&RightArm, layer_active && model_switcher.right_arm().is_active()),
+        (&LeftArm, layer_active && model_switcher.left_arm().is_active()),
+        (&RightLeg, layer_active && model_switcher.right_leg().is_active()),
+        (&LeftLeg, layer_active && model_switcher.left_leg().is_active()),
+    ]);
+}
+
+fn sync_outer_layer(win: &Window, model_switcher: &ModelSwitcher) {
+    let layer_active = model_switcher.outer_layer_toggle().is_active();
+    win.set_body_parts_visible(&[
+        (&HeadOuter, layer_active && model_switcher.head().is_active()),
+        (&TorsoOuter, layer_active && model_switcher.torso().is_active()),
+        (&RightArmOuter, layer_active && model_switcher.right_arm().is_active()),
+        (&LeftArmOuter, layer_active && model_switcher.left_arm().is_active()),
+        (&RightLegOuter, layer_active && model_switcher.right_leg().is_active()),
+        (&LeftLegOuter, layer_active && model_switcher.left_leg().is_active()),
+    ]);
+}
+
+fn connect_part_toggle(
+    model_switcher: &ModelSwitcher,
+    win: Window,
+    inner: BodyPart,
+    outer: BodyPart,
+    part_toggle: impl Fn(&ModelSwitcher) -> gtk::ToggleButton + 'static,
+) {
+    part_toggle(model_switcher).connect_toggled(clone!(
+        #[weak]
+        model_switcher,
+        #[weak(rename_to = win)]
+        win,
+        move |toggle| {
+            let visible = toggle.is_active();
+            let mut updates = Vec::new();
+            if model_switcher.inner_layer_toggle().is_active() {
+                updates.push((&inner, visible));
+            }
+            if model_switcher.outer_layer_toggle().is_active() {
+                updates.push((&outer, visible));
+            }
+            if !updates.is_empty() {
+                win.set_body_parts_visible(&updates);
+            }
         }
     ));
 }

@@ -5,6 +5,7 @@ use gtk::prelude::WidgetExt;
 use image::{DynamicImage, ImageBuffer, Rgba};
 
 use crate::command::{Action, DrawingHistory, Tool};
+use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::GliumArea;
 use crate::glium_area::renderer::{ModelCell, Renderer};
 use crate::glium_area::skin_parser::{ModelType, TextureLoadError, TextureType};
@@ -14,6 +15,7 @@ pub struct EditorSession {
     history: DrawingHistory,
     tool: Tool,
     tools_enabled: bool,
+    dirty: bool,
 }
 
 impl EditorSession {
@@ -24,6 +26,7 @@ impl EditorSession {
             history,
             tool: Tool::default(),
             tools_enabled: true,
+            dirty: false,
         }
     }
 
@@ -57,6 +60,19 @@ impl EditorSession {
 
     pub fn add_command(&mut self, command: Box<dyn Action>) {
         self.history.add_command(command);
+        self.mark_dirty();
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    pub fn clear_dirty(&mut self) {
+        self.dirty = false;
     }
 
     pub fn last_modified_cell(&self) -> Option<ModelCell> {
@@ -69,6 +85,7 @@ impl EditorSession {
 
     pub fn clear_history(&mut self) {
         self.history.clear();
+        self.clear_dirty();
     }
 
     pub fn request_redraw(&self) {
@@ -87,7 +104,9 @@ impl EditorSession {
     ) -> Result<(), TextureLoadError> {
         let renderer = self.renderer().expect("Renderer is not initialized");
         let mut renderer = renderer.borrow_mut();
-        renderer.load_texture(path, model_type, ignore_transparent)
+        renderer.load_texture(path, model_type, ignore_transparent)?;
+        self.mark_dirty();
+        Ok(())
     }
 
     pub fn load_skin_from_image(
@@ -104,24 +123,48 @@ impl EditorSession {
             model_type,
             texture_type,
             ignore_transparent,
-        )
+        )?;
+        self.mark_dirty();
+        Ok(())
     }
 
     pub fn load_template(&mut self, path: &str) -> Result<(), TextureLoadError> {
         let renderer = self.renderer().expect("Renderer is not initialized");
         let model_type = renderer.borrow().get_model_type();
         let mut renderer = renderer.borrow_mut();
-        renderer.load_texture(path, &model_type, true)
+        renderer.load_texture(path, &model_type, true)?;
+        self.mark_dirty();
+        Ok(())
     }
 
     pub fn reset_skin(&mut self) {
         let renderer = self.renderer().expect("Renderer is not initialized");
         renderer.borrow_mut().reset_skin();
+        self.mark_dirty();
     }
 
     pub fn set_grid_visible(&mut self, visible: bool) {
         let renderer = self.renderer().expect("Renderer is not initialized");
         renderer.borrow_mut().set_grid_show(visible);
+    }
+
+    pub fn set_body_part_active(&mut self, body_part: &BodyPart, visible: bool) {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        renderer.borrow_mut().set_body_part_active(body_part, visible);
+    }
+
+    pub fn set_body_parts_active(&mut self, updates: &[(&BodyPart, bool)]) {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        let mut renderer = renderer.borrow_mut();
+        for (body_part, visible) in updates {
+            renderer.set_body_part_active(body_part, *visible);
+        }
+    }
+
+    pub fn reset_model_type(&mut self, model_type: &ModelType) {
+        let renderer = self.renderer().expect("Renderer is not initialized");
+        renderer.borrow_mut().reset_model_type(model_type);
+        self.mark_dirty();
     }
 
     pub fn export_texture(&self) -> ImageBuffer<Rgba<u8>, Vec<u8>> {

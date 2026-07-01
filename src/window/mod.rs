@@ -10,6 +10,7 @@ use crate::application::Application;
 use crate::command::{Action, Tool};
 use crate::editor_host::EditorHost;
 use crate::editor_session::EditorSession;
+use crate::glium_area::body_part::BodyPart;
 use crate::glium_area::renderer::ModelCell;
 use crate::glium_area::skin_parser::{ModelType, TextureLoadError, TextureType};
 use crate::skin_loader_popover::SkinLoaderPopover;
@@ -148,6 +149,35 @@ impl Window {
 
     pub fn refresh_template_list(&self) {
         self.imp().template_list.load_list(self);
+    }
+
+    pub fn set_body_part_visible(&self, body_part: &BodyPart, visible: bool) {
+        self.editor_mut().set_body_part_active(body_part, visible);
+        self.request_viewport_redraw();
+    }
+
+    pub fn set_body_parts_visible(&self, updates: &[(&BodyPart, bool)]) {
+        self.editor_mut().set_body_parts_active(updates);
+        self.request_viewport_redraw();
+    }
+
+    pub fn change_model_type(&self, model_type: ModelType) {
+        self.editor_mut().reset_model_type(&model_type);
+        self.request_viewport_redraw();
+    }
+
+    pub(super) fn consume_skin_import_model_change(&self) -> bool {
+        self.imp().opening_new_skin.take()
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.editor().is_dirty()
+    }
+
+    pub fn save_skin_to_path(&self, path: &str) -> Result<(), image::ImageError> {
+        self.export_texture().save(path)?;
+        self.editor_mut().clear_dirty();
+        Ok(())
     }
 
     pub(super) fn set_tool_active(&self, active: bool) {
