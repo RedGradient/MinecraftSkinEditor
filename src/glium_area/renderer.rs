@@ -4,7 +4,8 @@ use std::hash::Hash;
 use std::ops::Range;
 use std::rc::Rc;
 
-use glium::{Frame, IndexBuffer, Program, Surface, Texture2d, uniform, VertexBuffer};
+use glium::{DrawParameters, Frame, IndexBuffer, Program, Rect, Surface, Texture2d, uniform, VertexBuffer};
+use glium::draw_parameters::{BackfaceCullingMode, Depth, DepthTest};
 use glium::backend::Context;
 use glium::index::PrimitiveType;
 use glium::texture::RawImage2d;
@@ -181,18 +182,53 @@ impl FaceIndicator {
         Texture2d::new(&context, image).unwrap()
     }
 
-    fn draw(&mut self, frame: &mut Frame) {
-        let (width, height) = self.context.get_framebuffer_dimensions();
-        let aspect_ratio = width as f32 / height as f32;
-        let ortho_height = 2.0;
-        let ortho_width = ortho_height * aspect_ratio;
-        let near = -10.0;
-        let far = 1000.0;
+    const VIEWPORT_FRACTION: f32 = 0.11;
+    const MARGIN_FRACTION: f32 = 0.015;
+    /// Fills ~45% of the square corner viewport (matches the old full-frame size).
+    const VIEWPORT_CUBE_SCALE: f32 = 0.85;
 
-        let projection_matrix = glm::ortho(-ortho_width / 2.0, ortho_width / 2.0, -ortho_height / 2.0, ortho_height / 2.0, near, far);
-        let translation_matrix = glm::translation(&glm::vec3(ortho_width / 2.0 - 0.15, ortho_height / 2.0 - 0.15, 0.0));
-        let scale_matrix = glm::scale(&Mat4::identity(), &glm::vec3(0.1, 0.1, 0.1));
-        let matrix = projection_matrix * translation_matrix * self.camera.borrow().get_rotation_matrix() * scale_matrix;
+    fn corner_viewport(context: &Rc<Context>) -> Rect {
+        let (fb_w, fb_h) = context.get_framebuffer_dimensions();
+        let margin = (fb_h as f32 * Self::MARGIN_FRACTION).round() as u32;
+        let size = (fb_h as f32 * Self::VIEWPORT_FRACTION).round().max(32.0) as u32;
+
+        Rect {
+            left: fb_w.saturating_sub(size + margin),
+            bottom: fb_h.saturating_sub(size + margin),
+            width: size,
+            height: size,
+        }
+    }
+
+    fn draw(&mut self, frame: &mut Frame) {
+        let viewport = Self::corner_viewport(&self.context);
+
+        // Local ortho in the corner viewport; rotation matches the main model.
+        let projection_matrix = glm::ortho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+        let scale_matrix = glm::scale(
+            &Mat4::identity(),
+            &glm::vec3(
+                Self::VIEWPORT_CUBE_SCALE,
+                Self::VIEWPORT_CUBE_SCALE,
+                Self::VIEWPORT_CUBE_SCALE,
+            ),
+        );
+        let matrix = projection_matrix
+            * self.camera.borrow().get_rotation_matrix()
+            * scale_matrix;
+
+        let draw_parameters = DrawParameters {
+            viewport: Some(viewport),
+            scissor: Some(viewport),
+            depth: Depth {
+                test: DepthTest::Overwrite,
+                write: false,
+                ..Default::default()
+            },
+            blend: glium::Blend::alpha_blending(),
+            backface_culling: BackfaceCullingMode::CullingDisabled,
+            ..Default::default()
+        };
 
         // Mysterious hack. Without this line, the texture is not applied to the object
         let _ = Texture2d::empty(&self.context, 0, 0);
@@ -224,7 +260,7 @@ impl FaceIndicator {
             &self.index_buffer,
             &self.program,
             &uniforms,
-            &Default::default()
+            &draw_parameters,
         ).unwrap();
     }
 }
@@ -543,6 +579,7 @@ impl Renderer {
             self.model_objects.get_mut(body_part).expect("Some body part is missed").draw(&mut frame);
         }
 
+        frame.clear_depth(1.0);
         self.face_indicator.draw(&mut frame);
 
         frame.finish().unwrap();

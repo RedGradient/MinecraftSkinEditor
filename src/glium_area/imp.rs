@@ -27,10 +27,10 @@ impl ObjectImpl for GliumGLArea {}
 
 impl WidgetImpl for GliumGLArea {
     fn realize(&self) {
-        self.parent_realize();
         let widget = self.obj();
         widget.set_has_depth_buffer(true);
         widget.set_has_stencil_buffer(true);
+        self.parent_realize();
 
         if widget.error().is_some() {
             return;
