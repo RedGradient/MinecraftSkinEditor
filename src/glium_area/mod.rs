@@ -7,7 +7,7 @@ use gtk::prelude::{GLAreaExt, IsA, WidgetExt};
 use gtk::subclass::prelude::{ObjectSubclassExt, ObjectSubclassIsExt};
 
 use crate::glium_area::renderer::Renderer;
-use crate::window::Window;
+use crate::editor_host::EditorHost;
 
 mod imp;
 mod input;
@@ -66,10 +66,10 @@ impl GliumArea {
         glib::Object::new()
     }
 
-    pub fn setup(&self, win: &Window) {
+    pub fn setup<H: EditorHost + Clone + 'static>(&self, host: H) {
         self.set_vexpand(true);
         self.set_hexpand(true);
-        self.connect_signals(win);
+        self.connect_signals(host);
     }
 
     pub fn renderer(&self) -> Option<Rc<RefCell<Renderer>>> {

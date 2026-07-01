@@ -21,6 +21,7 @@ mod skin_dialog;
 mod application;
 mod command;
 mod editor_session;
+mod editor_host;
 mod utils;
 pub const APP_ID: &str = "io.redgradient.MCSkinEditor";
 

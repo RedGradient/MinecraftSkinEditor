@@ -8,6 +8,7 @@ use libadwaita as adw;
 
 use crate::application::Application;
 use crate::command::{Action, Tool};
+use crate::editor_host::EditorHost;
 use crate::editor_session::EditorSession;
 use crate::glium_area::renderer::ModelCell;
 use crate::skin_loader_popover::SkinLoaderPopover;
@@ -45,7 +46,7 @@ impl Window {
         self.imp().color_button.set_dialog(&color_dialog);
 
         let gl_area = self.imp().gl_area.get();
-        gl_area.setup(self);
+        gl_area.setup(self.clone());
         self.imp().editor.replace(Some(EditorSession::new(gl_area)));
         self.set_tool_active(true);
     }
@@ -81,23 +82,6 @@ impl Window {
         self.editor().viewport().clone()
     }
 
-    pub fn current_tool(&self) -> Tool {
-        self.editor().tool()
-    }
-
-    pub fn active_color(&self) -> gtk::gdk::RGBA {
-        self.imp().color_button.rgba()
-    }
-
-    pub fn set_active_color(&self, rgba: &gtk::gdk::RGBA) {
-        self.imp().color_button.set_rgba(rgba);
-    }
-
-    pub fn select_pencil_tool(&self) {
-        self.imp().pencil.set_active(true);
-        self.editor_mut().set_tool(Tool::Pencil);
-    }
-
     pub fn begin_skin_import(&self, model_type_index: u32) {
         self.imp().opening_new_skin.replace(true);
         self.imp()
@@ -115,23 +99,46 @@ impl Window {
         self.editor().request_redraw();
     }
 
-    pub fn get_last_modified_cell(&self) -> Option<ModelCell> {
-        self.editor().last_modified_cell()
-    }
-
-    pub fn set_last_modified(&self, cell: ModelCell) {
-        self.editor_mut().set_last_modified(cell);
-    }
-
-    pub fn add_command_to_history(&self, command: Box<dyn Action>) {
-        self.editor_mut().add_command(command);
-    }
-
     pub(super) fn set_tool_active(&self, active: bool) {
         self.editor_mut().set_tools_enabled(active);
     }
 
     pub fn is_tool_active(&self) -> bool {
         self.editor().tools_enabled()
+    }
+}
+
+impl EditorHost for Window {
+    fn tools_enabled(&self) -> bool {
+        self.editor().tools_enabled()
+    }
+
+    fn current_tool(&self) -> Tool {
+        self.editor().tool()
+    }
+
+    fn active_color(&self) -> gtk::gdk::RGBA {
+        self.imp().color_button.rgba()
+    }
+
+    fn set_active_color(&self, rgba: &gtk::gdk::RGBA) {
+        self.imp().color_button.set_rgba(rgba);
+    }
+
+    fn select_pencil_tool(&self) {
+        self.imp().pencil.set_active(true);
+        self.editor_mut().set_tool(Tool::Pencil);
+    }
+
+    fn last_modified_cell(&self) -> Option<ModelCell> {
+        self.editor().last_modified_cell()
+    }
+
+    fn set_last_modified(&self, cell: ModelCell) {
+        self.editor_mut().set_last_modified(cell);
+    }
+
+    fn add_command(&self, command: Box<dyn Action>) {
+        self.editor_mut().add_command(command);
     }
 }

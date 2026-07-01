@@ -2,20 +2,20 @@ use gtk::prelude::{GestureExt, WidgetExt};
 
 use crate::command::*;
 use crate::command::Tool;
+use crate::editor_host::EditorHost;
 use crate::glium_area::GliumArea;
 use crate::glium_area::hover::Hover;
 use crate::glium_area::renderer::ModelCell;
 use crate::utils::{random_brightness, rgba_to_f32};
-use crate::window::Window;
 
 impl GliumArea {
-    pub(super) fn connect_signals(&self, win: &Window) {
+    pub(super) fn connect_signals<H: EditorHost + Clone + 'static>(&self, host: H) {
         self.connect_scroll();
-        self.connect_click(win);
+        self.connect_click(host);
     }
 
-    fn connect_click(&self, win: &Window) {
-        let click_handler = self.get_click_handler(win);
+    fn connect_click<H: EditorHost + Clone + 'static>(&self, host: H) {
+        let click_handler = self.get_click_handler(host.clone());
         let click = gtk::GestureClick::new();
         click.connect_begin(move |gesture, seq| {
             let point = gesture
@@ -24,7 +24,7 @@ impl GliumArea {
             click_handler(point.0 as f32, point.1 as f32, false);
         });
 
-        let click_handler = self.get_click_handler(win);
+        let click_handler = self.get_click_handler(host);
         let gl_area = self.clone();
         click.connect_update(move |gesture, seq| {
             let point = gesture
@@ -81,9 +81,11 @@ impl GliumArea {
         self.add_controller(scroll);
     }
 
-    fn get_click_handler(&self, win: &Window) -> impl Fn(f32, f32, bool) + 'static {
+    fn get_click_handler<H: EditorHost + Clone + 'static>(
+        &self,
+        host: H,
+    ) -> impl Fn(f32, f32, bool) + 'static {
         let gl_area = self.clone();
-        let win = win.clone();
         move |x, y, updating| {
             let Some(renderer_rc) = gl_area.renderer() else {
                 return;
@@ -103,80 +105,80 @@ impl GliumArea {
             let cell = cell_opt.unwrap();
             drop(renderer);
 
-            if !win.is_tool_active() {
+            if !host.tools_enabled() {
                 gl_area.queue_draw();
                 return;
             }
 
-            match win.current_tool() {
-                Tool::Pencil => Self::handle_pencil(gl_area.clone(), cell, win.clone()),
-                Tool::Rubber => Self::handle_rubber(gl_area.clone(), cell, win.clone()),
-                Tool::Fill => Self::handle_fill(gl_area.clone(), cell, win.clone()),
-                Tool::Random => Self::handle_random(gl_area.clone(), cell, win.clone()),
-                Tool::Replace => Self::handle_replace(gl_area.clone(), cell, win.clone()),
-                Tool::ColorPicker => Self::handle_color_picker(&gl_area, x, y, &win),
+            match host.current_tool() {
+                Tool::Pencil => Self::handle_pencil(gl_area.clone(), cell, &host),
+                Tool::Rubber => Self::handle_rubber(gl_area.clone(), cell, &host),
+                Tool::Fill => Self::handle_fill(gl_area.clone(), cell, &host),
+                Tool::Random => Self::handle_random(gl_area.clone(), cell, &host),
+                Tool::Replace => Self::handle_replace(gl_area.clone(), cell, &host),
+                Tool::ColorPicker => Self::handle_color_picker(&gl_area, x, y, &host),
             }
 
             gl_area.queue_draw();
         }
     }
 
-    fn handle_color_picker(gl_area: &GliumArea, x: f32, y: f32, win: &Window) {
+    fn handle_color_picker<H: EditorHost>(gl_area: &GliumArea, x: f32, y: f32, host: &H) {
         let Some(renderer) = gl_area.renderer() else {
             return;
         };
         let mut renderer = renderer.borrow_mut();
         if let Some(cell) = renderer.get_cell(x, y, true) {
             let rgba = crate::utils::f32_to_rgba(cell.color);
-            win.set_active_color(&rgba);
-            win.select_pencil_tool();
+            host.set_active_color(&rgba);
+            host.select_pencil_tool();
         }
     }
 
-    fn handle_pencil(gl_area: GliumArea, cell: ModelCell, win: Window) {
-        let color = rgba_to_f32(win.active_color());
-        let trying_draw_same_cell = win
-            .get_last_modified_cell()
+    fn handle_pencil<H: EditorHost>(gl_area: GliumArea, cell: ModelCell, host: &H) {
+        let color = rgba_to_f32(host.active_color());
+        let trying_draw_same_cell = host
+            .last_modified_cell()
             .is_some_and(|last| last.same_cell(cell));
         if !trying_draw_same_cell {
-            win.add_command_to_history(Box::new(Draw::new(gl_area, cell, color)));
-            win.set_last_modified(cell);
+            host.add_command(Box::new(Draw::new(gl_area, cell, color)));
+            host.set_last_modified(cell);
         }
     }
 
-    fn handle_replace(gl_area: GliumArea, cell: ModelCell, win: Window) {
+    fn handle_replace<H: EditorHost>(gl_area: GliumArea, cell: ModelCell, host: &H) {
         if cell.color[3] == 0.0 {
             return;
         }
-        let rgba = win.active_color();
+        let rgba = host.active_color();
         let new_color = [rgba.red(), rgba.green(), rgba.blue(), rgba.alpha()];
-        win.add_command_to_history(Box::new(Replace::new(gl_area, cell.color, new_color)));
+        host.add_command(Box::new(Replace::new(gl_area, cell.color, new_color)));
     }
 
-    fn handle_random(gl_area: GliumArea, cell: ModelCell, win: Window) {
-        let color = rgba_to_f32(win.active_color());
-        let trying_draw_same_cell = win
-            .get_last_modified_cell()
+    fn handle_random<H: EditorHost>(gl_area: GliumArea, cell: ModelCell, host: &H) {
+        let color = rgba_to_f32(host.active_color());
+        let trying_draw_same_cell = host
+            .last_modified_cell()
             .is_some_and(|last| last.same_cell(cell));
         if !trying_draw_same_cell {
-            win.add_command_to_history(Box::new(Draw::new(
+            host.add_command(Box::new(Draw::new(
                 gl_area,
                 cell,
                 random_brightness(color),
             )));
-            win.set_last_modified(cell);
+            host.set_last_modified(cell);
         }
     }
 
-    fn handle_rubber(gl_area: GliumArea, cell: ModelCell, win: Window) {
-        win.add_command_to_history(Box::new(Draw::new(
+    fn handle_rubber<H: EditorHost>(gl_area: GliumArea, cell: ModelCell, host: &H) {
+        host.add_command(Box::new(Draw::new(
             gl_area,
             cell,
             [0.0, 0.0, 0.0, 0.0],
         )));
     }
 
-    fn handle_fill(gl_area: GliumArea, cell: ModelCell, win: Window) {
+    fn handle_fill<H: EditorHost>(gl_area: GliumArea, cell: ModelCell, host: &H) {
         let Some(renderer) = gl_area.renderer() else {
             return;
         };
@@ -184,8 +186,8 @@ impl GliumArea {
             .borrow()
             .get_side_cells(&cell.body_part, cell.cell_index)
             .unwrap();
-        let new_color = rgba_to_f32(win.active_color());
-        win.add_command_to_history(Box::new(Fill::new(
+        let new_color = rgba_to_f32(host.active_color());
+        host.add_command(Box::new(Fill::new(
             gl_area,
             cell.body_part,
             new_color,
