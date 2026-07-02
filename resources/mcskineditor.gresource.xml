@@ -2,11 +2,17 @@
 <gresources>
     <gresource prefix="/io/redgradient/MCSkinEditor/media/">
         <file alias="pencil.png">ui/media/pencil.png</file>
+        <file alias="pencil_dark.png">ui/media/pencil_dark.png</file>
         <file alias="eraser.png">ui/media/eraser.png</file>
+        <file alias="eraser_dark.png">ui/media/eraser_dark.png</file>
         <file alias="color_picker.png">ui/media/color_picker.png</file>
+        <file alias="color_picker_dark.png">ui/media/color_picker_dark.png</file>
         <file alias="grid.png">ui/media/grid.png</file>
+        <file alias="grid_dark.png">ui/media/grid_dark.png</file>
         <file alias="fill.png">ui/media/fill.png</file>
+        <file alias="fill_dark.png">ui/media/fill_dark.png</file>
         <file alias="replace.png">ui/media/replace.png</file>
+        <file alias="replace_dark.png">ui/media/replace_dark.png</file>
     </gresource>
 
     <gresource prefix="/io/redgradient/MCSkinEditor/">

@@ -54,12 +54,38 @@ impl Window {
     }
 
     fn set_icons(&self) {
-        let pencil_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/pencil.png");
-        let rubber_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/eraser.png");
-        let color_picker_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/color_picker.png");
-        let grid_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/grid.png");
-        let fill_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/fill.png");
-        let replace_ico = gtk::Image::from_resource("/io/redgradient/MCSkinEditor/media/replace.png");
+        let style_manager = adw::StyleManager::default();
+        self.apply_icons(style_manager.is_dark());
+
+        style_manager.connect_dark_notify(glib::clone!(
+            #[weak(rename_to = win)]
+            self,
+            move |style| {
+                win.apply_icons(style.is_dark());
+            }
+        ));
+    }
+
+    fn apply_icons(&self, dark: bool) {
+        let variant = if dark { "_dark" } else { "" };
+        let pencil_ico = gtk::Image::from_resource(&format!(
+            "/io/redgradient/MCSkinEditor/media/pencil{variant}.png"
+        ));
+        let rubber_ico = gtk::Image::from_resource(&format!(
+            "/io/redgradient/MCSkinEditor/media/eraser{variant}.png"
+        ));
+        let color_picker_ico = gtk::Image::from_resource(&format!(
+            "/io/redgradient/MCSkinEditor/media/color_picker{variant}.png"
+        ));
+        let grid_ico = gtk::Image::from_resource(&format!(
+            "/io/redgradient/MCSkinEditor/media/grid{variant}.png"
+        ));
+        let fill_ico = gtk::Image::from_resource(&format!(
+            "/io/redgradient/MCSkinEditor/media/fill{variant}.png"
+        ));
+        let replace_ico = gtk::Image::from_resource(&format!(
+            "/io/redgradient/MCSkinEditor/media/replace{variant}.png"
+        ));
         self.imp().pencil.set_child(Some(&pencil_ico));
         self.imp().rubber.set_child(Some(&rubber_ico));
         self.imp().color_picker.set_child(Some(&color_picker_ico));
