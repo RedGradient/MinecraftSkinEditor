@@ -104,6 +104,11 @@ impl EditorSession {
     ) -> Result<(), TextureLoadError> {
         let renderer = self.renderer().expect("Renderer is not initialized");
         let mut renderer = renderer.borrow_mut();
+        
+        if !ignore_transparent {
+            renderer.reset_skin();
+        }
+
         renderer.load_texture(path, model_type, ignore_transparent)?;
         self.mark_dirty();
         Ok(())
@@ -118,6 +123,11 @@ impl EditorSession {
     ) -> Result<(), TextureLoadError> {
         let renderer = self.renderer().expect("Renderer is not initialized");
         let mut renderer = renderer.borrow_mut();
+
+        if !ignore_transparent {
+            renderer.reset_skin();
+        }
+        
         renderer.load_texture_from_bytes(
             image,
             model_type,
