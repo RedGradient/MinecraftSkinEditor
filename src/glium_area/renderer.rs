@@ -741,6 +741,16 @@ impl Renderer {
         model_object.paint(cell.cell_index, cell.color);
     }
 
+    pub fn snapshot_cells(&self) -> BTreeMap<(BodyPart, usize), [f32; 4]> {
+        let mut snapshot = BTreeMap::new();
+        for (body_part, model_object) in &self.model_objects {
+            for (cell_index, &color) in model_object.get_pixels().iter().enumerate() {
+                snapshot.insert((body_part.clone(), cell_index), color);
+            }
+        }
+        snapshot
+    }
+
     pub fn paint(&mut self, x: f32, y: f32, color: [f32; 4]) {
         let clicked_cell = self.get_cell(x, y, false);
         if let Some(cell) = clicked_cell {

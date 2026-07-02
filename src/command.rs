@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 use gtk::prelude::WidgetExt;
 
@@ -8,27 +8,89 @@ use crate::glium_area::renderer::ModelCell;
 
 pub trait Action {
     fn execute(&self);
-    fn undo(&self);
-    fn redo(&self);
+}
+
+#[derive(Clone)]
+struct CellChange {
+    body_part: BodyPart,
+    cell_index: usize,
+    before: [f32; 4],
+    after: [f32; 4],
+}
+
+type ModelSnapshot = BTreeMap<(BodyPart, usize), [f32; 4]>;
+
+fn snapshot_model(gl_area: &GliumArea) -> ModelSnapshot {
+    let renderer = gl_area.renderer().expect("Renderer is not initialized");
+    let snapshot = renderer.borrow().snapshot_cells();
+    snapshot
+}
+
+fn colors_differ(a: [f32; 4], b: [f32; 4]) -> bool {
+    a != b
+}
+
+fn diff_snapshots(before: &ModelSnapshot, after: &ModelSnapshot) -> Vec<CellChange> {
+    let mut changes = Vec::new();
+
+    for ((body_part, cell_index), &after_color) in after {
+        let before_color = before
+            .get(&(*body_part, *cell_index))
+            .copied()
+            .unwrap_or([0.0, 0.0, 0.0, 0.0]);
+        if colors_differ(before_color, after_color) {
+            changes.push(CellChange {
+                body_part: *body_part,
+                cell_index: *cell_index,
+                before: before_color,
+                after: after_color,
+            });
+        }
+    }
+
+    for ((body_part, cell_index), &before_color) in before {
+        if !after.contains_key(&(*body_part, *cell_index)) {
+            changes.push(CellChange {
+                body_part: *body_part,
+                cell_index: *cell_index,
+                before: before_color,
+                after: [0.0, 0.0, 0.0, 0.0],
+            });
+        }
+    }
+
+    changes
+}
+
+fn apply_diff(gl_area: &GliumArea, diff: &[CellChange], undo: bool) {
+    let renderer = gl_area.renderer().expect("Renderer is not initialized");
+    let mut renderer = renderer.borrow_mut();
+
+    for change in diff {
+        let color = if undo { change.before } else { change.after };
+        renderer.set_cell(&ModelCell {
+            body_part: change.body_part,
+            cell_index: change.cell_index,
+            color,
+        });
+    }
+
+    gl_area.queue_draw();
 }
 
 pub struct Draw {
     gl_area: GliumArea,
-    old_cell: ModelCell,
     new_cell: ModelCell,
 }
 impl Draw {
     pub fn new(gl_area: GliumArea, cell: ModelCell, color: [f32; 4]) -> Draw {
-        let new_cell = ModelCell {
-            body_part: cell.body_part,
-            cell_index: cell.cell_index,
-            color
-        };
-        
         Draw {
             gl_area,
-            old_cell: cell,
-            new_cell,
+            new_cell: ModelCell {
+                body_part: cell.body_part,
+                cell_index: cell.cell_index,
+                color,
+            },
         }
     }
 }
@@ -39,31 +101,19 @@ impl Action for Draw {
         renderer.set_cell(&self.new_cell);
         self.gl_area.queue_draw();
     }
-    fn undo(&self) {
-        let renderer = self.gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-        renderer.set_cell(&self.old_cell);
-        self.gl_area.queue_draw();
-    }
-    fn redo(&self) {
-        self.execute();
-    }
 }
-
 
 pub struct Fill {
     gl_area: GliumArea,
-    body_part: BodyPart,
     fill_color: [f32; 4],
-    prev_colors: Vec<ModelCell>,
+    cells: Vec<ModelCell>,
 }
 impl Fill {
-    pub fn new(gl_area: GliumArea, body_part: BodyPart, fill_color: [f32; 4], prev_colors: Vec<ModelCell>) -> Fill {
+    pub fn new(gl_area: GliumArea, _body_part: BodyPart, fill_color: [f32; 4], cells: Vec<ModelCell>) -> Fill {
         Fill {
             gl_area,
-            body_part,
             fill_color,
-            prev_colors,
+            cells,
         }
     }
 }
@@ -72,9 +122,9 @@ impl Action for Fill {
         let renderer = self.gl_area.renderer().unwrap();
         let mut renderer = renderer.borrow_mut();
 
-        for cell in &self.prev_colors {
+        for cell in &self.cells {
             let new_cell = ModelCell {
-                body_part: cell.body_part.clone(),
+                body_part: cell.body_part,
                 cell_index: cell.cell_index,
                 color: self.fill_color,
             };
@@ -83,32 +133,12 @@ impl Action for Fill {
 
         self.gl_area.queue_draw();
     }
-
-    fn undo(&self) {
-        let renderer = self.gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-
-        for cell in &self.prev_colors {
-            let new_cell = ModelCell {
-                body_part: cell.body_part.clone(),
-                cell_index: cell.cell_index,
-                color: cell.color,
-            };
-            renderer.set_cell(&new_cell);
-        }
-        self.gl_area.queue_draw();
-    }
-    fn redo(&self) {
-        self.execute();
-    }
 }
-
 
 pub struct Replace {
     gl_area: GliumArea,
     old_color: [f32; 4],
     new_color: [f32; 4],
-    replaced_cells: RefCell<Vec<ModelCell>>,
 }
 impl Replace {
     pub fn new(gl_area: GliumArea, old_color: [f32; 4], new_color: [f32; 4]) -> Replace {
@@ -116,7 +146,6 @@ impl Replace {
             gl_area,
             old_color,
             new_color,
-            replaced_cells: RefCell::new(vec![]),
         }
     }
 }
@@ -124,25 +153,10 @@ impl Action for Replace {
     fn execute(&self) {
         let renderer = self.gl_area.renderer().unwrap();
         let mut renderer = renderer.borrow_mut();
-        let replaced = renderer.replace(self.old_color, self.new_color);
-        self.replaced_cells.replace(replaced);
+        renderer.replace(self.old_color, self.new_color);
         self.gl_area.queue_draw();
-    }
-
-    fn undo(&self) {
-        let renderer = self.gl_area.renderer().unwrap();
-        let mut renderer = renderer.borrow_mut();
-        for model_cell in self.replaced_cells.borrow().iter() {
-            renderer.set_cell(model_cell);
-        }
-        self.gl_area.queue_draw();
-    }
-
-    fn redo(&self) {
-        self.execute();
     }
 }
-
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Tool {
@@ -162,8 +176,8 @@ impl Default for Tool {
 
 pub struct DrawingHistory {
     gl_area: GliumArea,
-    undo_stack: Vec<Box<dyn Action>>,
-    redo_stack: Vec<Box<dyn Action>>,
+    undo_stack: Vec<Vec<CellChange>>,
+    redo_stack: Vec<Vec<CellChange>>,
     last_modified_cell: Option<ModelCell>,
 }
 
@@ -173,30 +187,37 @@ impl DrawingHistory {
     }
 
     pub fn add_command(&mut self, command: Box<dyn Action>) -> bool {
+        let before = snapshot_model(&self.gl_area);
         command.execute();
-        self.undo_stack.push(command);
-        self.redo_stack.clear();
+        let after = snapshot_model(&self.gl_area);
+        let diff = diff_snapshots(&before, &after);
+
+        if !diff.is_empty() {
+            self.undo_stack.push(diff);
+            self.redo_stack.clear();
+        }
+
         true
     }
 
     pub fn undo(&mut self) {
         if self.undo_stack.is_empty() { return }
-        let command = self.undo_stack.pop()
-            .expect("Error popping a command from undo_stack");
+        let diff = self.undo_stack.pop()
+            .expect("Error popping a diff from undo_stack");
 
-        command.undo();
-        self.redo_stack.push(command);
+        apply_diff(&self.gl_area, &diff, true);
+        self.redo_stack.push(diff);
 
         self.last_modified_cell.take();
     }
 
     pub fn redo(&mut self) {
         if self.redo_stack.is_empty() { return }
-        let command = self.redo_stack.pop()
-            .expect("Error popping a command from redo_stack.");
+        let diff = self.redo_stack.pop()
+            .expect("Error popping a diff from redo_stack.");
 
-        command.redo();
-        self.undo_stack.push(command);
+        apply_diff(&self.gl_area, &diff, false);
+        self.undo_stack.push(diff);
 
         self.last_modified_cell.take();
     }
