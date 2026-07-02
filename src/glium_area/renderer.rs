@@ -27,7 +27,7 @@ use crate::glium_area::model::{
     head_vertices, BODY_CELLS_PER_SIDE, HEAD_CELLS_PER_SIDE, LIMB_3_CELLS_PER_SIDE,
     LIMB_4_CELLS_PER_SIDE,
 };
-use crate::glium_area::model_object::{ModelObject, ModelObjectType};
+use crate::glium_area::model_object::{ModelDrawPass, ModelObject, ModelObjectType};
 use crate::glium_area::mouse_move::MouseMove;
 use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::{ColorMap, ModelType, SkinParser, TextureLoadError, TextureType};
@@ -573,10 +573,37 @@ impl Renderer {
         frame.clear_color_and_depth(BACKGROUND_COLOR, 1.0);
 
         for body_part in &self.visible_objects {
-            if self.grid {
-                self.grid_objects.get_mut(body_part).expect("Some grid part is missed").draw(&mut frame);
+            if body_part.is_outer() {
+                continue;
             }
-            self.model_objects.get_mut(body_part).expect("Some body part is missed").draw(&mut frame);
+            if self.grid {
+                self.grid_objects
+                    .get_mut(body_part)
+                    .expect("Some grid part is missed")
+                    .draw(&mut frame);
+            }
+            self.model_objects
+                .get_mut(body_part)
+                .expect("Some body part is missed")
+                .draw(&mut frame);
+        }
+
+        for body_part in &self.visible_objects {
+            if !body_part.is_outer() {
+                continue;
+            }
+            let model_object = self
+                .model_objects
+                .get_mut(body_part)
+                .expect("Some body part is missed");
+            model_object.draw_pass(&mut frame, ModelDrawPass::OuterBackFaces);
+            model_object.draw_pass(&mut frame, ModelDrawPass::OuterFrontFaces);
+            if self.grid {
+                self.grid_objects
+                    .get_mut(body_part)
+                    .expect("Some grid part is missed")
+                    .draw(&mut frame);
+            }
         }
 
         frame.clear_depth(1.0);

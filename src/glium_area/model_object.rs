@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use glium::{DrawParameters, Frame, IndexBuffer, Surface, uniform, VertexBuffer};
+use glium::draw_parameters::BackfaceCullingMode;
 use glium::backend::Context;
 use glium::index::PrimitiveType;
 use image::Rgba;
@@ -40,6 +41,13 @@ pub struct ModelObject {
 pub enum ModelObjectType {
     Model,
     Grid
+}
+
+#[derive(Clone, Copy)]
+pub enum ModelDrawPass {
+    Standard,
+    OuterBackFaces,
+    OuterFrontFaces,
 }
 
 impl ModelObject {
@@ -122,15 +130,40 @@ impl ModelObject {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        self.draw_pass(frame, ModelDrawPass::Standard);
+    }
+
+    pub fn draw_pass(&mut self, frame: &mut Frame, pass: ModelDrawPass) {
         let rotation_matrix = self.camera.borrow().get_rotation_matrix();
         self.model_matrix = rotation_matrix * self.translation_matrix * self.scale_matrix;
         let view_matrix = self.camera.borrow().get_view_matrix();
         let projection_matrix = self.get_projection();
 
+        let (draw_parameters, discard_transparent) = match pass {
+            ModelDrawPass::Standard => (self.draw_parameters.clone(), false),
+            ModelDrawPass::OuterBackFaces => (
+                DrawParameters {
+                    blend: glium::Blend::alpha_blending(),
+                    backface_culling: BackfaceCullingMode::CullCounterClockwise,
+                    ..Default::default()
+                },
+                true,
+            ),
+            ModelDrawPass::OuterFrontFaces => (
+                DrawParameters {
+                    blend: glium::Blend::alpha_blending(),
+                    backface_culling: BackfaceCullingMode::CullClockwise,
+                    ..Default::default()
+                },
+                true,
+            ),
+        };
+
         let uniforms = uniform! {
             model_matrix: *self.model_matrix.as_ref(),
             view_matrix: *view_matrix.as_ref(),
             perspective_matrix: *projection_matrix.as_ref(),
+            discard_transparent: discard_transparent,
         };
         frame
             .draw(
@@ -138,7 +171,7 @@ impl ModelObject {
                 &self.index_buffer,
                 &self.program,
                 &uniforms,
-                &self.draw_parameters,
+                &draw_parameters,
             )
             .unwrap();
     }
@@ -152,8 +185,9 @@ impl ModelObject {
     }
 
     pub fn clear(&mut self) {
+        const TRANSPARENT: [f32; 4] = [1.0, 1.0, 1.0, 0.0];
         for vertex in self.vertexes.iter_mut() {
-            vertex.color = [0.0, 0.0, 0.0, 0.0];
+            vertex.color = TRANSPARENT;
         }
         self.vertex_buffer.write(&self.vertexes);
     }
