@@ -15,19 +15,19 @@
 **macOS** (Homebrew):
 
 ```shell
-brew install pkg-config gtk4 libadwaita
+brew install pkg-config gtk4 libadwaita libepoxy
 ```
 
-**Debian / Ubuntu** (needs a release with GTK 4.16+, e.g. Ubuntu 24.10+; 24.04 LTS is too old):
+**Debian / Ubuntu** (needs a release with GTK 4.16+, e.g. Ubuntu 24.10+; 24.04 LTS is too old for now, but requirements are expected to be lowered soon):
 
 ```shell
-sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev
+sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev libssl-dev libepoxy-dev
 ```
 
 **Fedora**:
 
 ```shell
-sudo dnf install gcc pkgconf-pkg-config gtk4-devel libadwaita-devel
+sudo dnf install gcc pkgconf-pkg-config gtk4-devel libadwaita-devel openssl-devel libepoxy-devel
 ```
 
 ### Build and run
