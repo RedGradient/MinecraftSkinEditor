@@ -1,4 +1,6 @@
-#version 330 core
+#version 320 es
+precision highp float;
+precision highp int;
 
 in vec2 v_tex_coords;
 in vec2 v_face_id;

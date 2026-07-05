@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::ops::Range;
 use std::rc::Rc;
 
-use glium::{DrawParameters, Frame, IndexBuffer, Program, Rect, Surface, Texture2d, uniform, VertexBuffer};
+use glium::{Api, DrawParameters, Frame, IndexBuffer, Program, Rect, Surface, Texture2d, uniform, VertexBuffer};
 use glium::draw_parameters::{BackfaceCullingMode, Depth, DepthTest};
 use glium::backend::Context;
 use glium::index::PrimitiveType;
@@ -33,6 +33,25 @@ use crate::glium_area::ray::Ray;
 use crate::glium_area::skin_parser::{ColorMap, ModelType, SkinParser, TextureLoadError, TextureType};
 use crate::glium_area::vertex::{Vertex, VertexTex};
 use crate::utils;
+
+fn shader_api_dir(context: &Context) -> &'static str {
+    match context.get_opengl_version().0 {
+        Api::GlEs => "gles",
+        Api::Gl => "gl",
+    }
+}
+
+fn load_shader(context: &Context, group: &str, name: &str) -> String {
+    let api_dir = shader_api_dir(context);
+    let path = if group.is_empty() {
+        format!("/io/redgradient/MCSkinEditor/shaders/{api_dir}/{name}")
+    } else {
+        format!("/io/redgradient/MCSkinEditor/shaders/{group}/{api_dir}/{name}")
+    };
+    let bytes = gio::resources_lookup_data(&path, ResourceLookupFlags::NONE)
+        .unwrap_or_else(|_| panic!("Failed to load shader: {path}"));
+    String::from_utf8(bytes.to_vec()).expect("Shader is not valid UTF-8")
+}
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct ModelCell {
@@ -68,18 +87,8 @@ struct FaceIndicator {
 
 impl FaceIndicator {
     pub fn new(context: Rc<Context>, camera: Rc<RefCell<Camera>>) -> FaceIndicator {
-        let vertex_shader = {
-            let path = "/io/redgradient/MCSkinEditor/shaders/face-indicator/vertex.glsl";
-            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
-                .expect("Failed to get vertex shader");
-            String::from_utf8(bytes.to_vec()).expect("Failed to get vertex shader")
-        };
-        let fragment_shader = {
-            let path = "/io/redgradient/MCSkinEditor/shaders/face-indicator/fragment.glsl";
-            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
-                .expect("Failed to get fragment shader");
-            String::from_utf8(bytes.to_vec()).expect("Failed to get fragment shader")
-        };
+        let vertex_shader = load_shader(&context, "face-indicator", "vertex.glsl");
+        let fragment_shader = load_shader(&context, "face-indicator", "fragment.glsl");
         let vertex_buffer = FaceIndicator::get_vertices(context.clone());
         let index_buffer = FaceIndicator::get_indices(context.clone());
         let program = Program::from_source(
@@ -88,7 +97,7 @@ impl FaceIndicator {
             fragment_shader.as_str(),
             None
         ).unwrap();
-        
+
         let front_texture = FaceIndicator::load_texture(context.clone(), Front);
         let back_texture = FaceIndicator::load_texture(context.clone(), Back);
         let right_texture = FaceIndicator::load_texture(context.clone(), Right);
@@ -353,18 +362,8 @@ impl Renderer {
     }
 
     pub fn new(context: Rc<Context>) -> Self {
-        let vertex_shader = {
-            let path = "/io/redgradient/MCSkinEditor/shaders/vertex.glsl";
-            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
-                .expect("Failed to get vertex shader");
-            String::from_utf8(bytes.to_vec()).expect("Failed to get vertex shader")
-        };
-        let fragment_shader = {
-            let path = "/io/redgradient/MCSkinEditor/shaders/fragment.glsl";
-            let bytes = gio::resources_lookup_data(path, ResourceLookupFlags::NONE)
-                .expect("Failed to get fragment shader");
-            String::from_utf8(bytes.to_vec()).expect("Failed to get fragment shader")
-        };
+        let vertex_shader = load_shader(&context, "", "vertex.glsl");
+        let fragment_shader = load_shader(&context, "", "fragment.glsl");
         let program = glium::Program::from_source(
             &context,
             vertex_shader.as_str(),

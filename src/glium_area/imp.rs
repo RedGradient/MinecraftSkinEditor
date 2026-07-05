@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use glium::Surface;
+use gtk::gdk;
 use gtk::glib;
 use gtk::glib::Propagation;
 use gtk::prelude::*;
@@ -30,6 +31,8 @@ impl WidgetImpl for GliumGLArea {
         let widget = self.obj();
         widget.set_has_depth_buffer(true);
         widget.set_has_stencil_buffer(true);
+        widget.set_allowed_apis(gdk::GLAPI::GL);
+        widget.set_required_version(3, 3);
         self.parent_realize();
 
         if widget.error().is_some() {

@@ -17,10 +17,14 @@
 
     <gresource prefix="/io/redgradient/MCSkinEditor/">
         <file alias="window.ui">ui/window.ui</file>
-        <file alias="shaders/fragment.glsl">shaders/fragment.glsl</file>
-        <file alias="shaders/vertex.glsl">shaders/vertex.glsl</file>
-        <file alias="shaders/face-indicator/fragment.glsl">shaders/face-indicator/fragment.glsl</file>
-        <file alias="shaders/face-indicator/vertex.glsl">shaders/face-indicator/vertex.glsl</file>
+        <file alias="shaders/gl/fragment.glsl">shaders/gl/fragment.glsl</file>
+        <file alias="shaders/gl/vertex.glsl">shaders/gl/vertex.glsl</file>
+        <file alias="shaders/gles/fragment.glsl">shaders/gles/fragment.glsl</file>
+        <file alias="shaders/gles/vertex.glsl">shaders/gles/vertex.glsl</file>
+        <file alias="shaders/face-indicator/gl/fragment.glsl">shaders/face-indicator/gl/fragment.glsl</file>
+        <file alias="shaders/face-indicator/gl/vertex.glsl">shaders/face-indicator/gl/vertex.glsl</file>
+        <file alias="shaders/face-indicator/gles/fragment.glsl">shaders/face-indicator/gles/fragment.glsl</file>
+        <file alias="shaders/face-indicator/gles/vertex.glsl">shaders/face-indicator/gles/vertex.glsl</file>
         <file alias="style.css">css/style.css</file>
 
         <file alias="steve-front.png">steve-front.png</file>
