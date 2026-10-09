@@ -1,0 +1,30 @@
+using Gtk 4.0;
+
+template $SkinLoaderPopover: Popover {
+  Box {
+    orientation: vertical;
+    spacing: 10;
+
+    Box {
+      orientation: horizontal;
+      spacing: 1;
+
+      styles [
+        "linked",
+      ]
+
+      SearchEntry nickname_entry {
+        placeholder-text: "nickname";
+      }
+
+      Button search_button {
+        label: "Search";
+      }
+    }
+
+    Box popover_content {
+      orientation: vertical;
+      spacing: 10;
+    }
+  }
+}

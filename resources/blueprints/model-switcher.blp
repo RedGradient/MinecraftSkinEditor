@@ -1,0 +1,116 @@
+using Gtk 4.0;
+
+template $ModelSwitcher: Widget {
+  Box model_box {
+    orientation: vertical;
+    spacing: 1;
+
+    Box {
+      margin-bottom: 4;
+      orientation: horizontal;
+      spacing: 10;
+      halign: center;
+
+      ToggleButton inner_layer_toggle {
+        label: "Body";
+        active: true;
+      }
+
+      ToggleButton outer_layer_toggle {
+        label: "Outer";
+        active: true;
+      }
+    }
+
+    Box {
+      orientation: horizontal;
+      halign: center;
+
+      ToggleButton head {
+        active: true;
+        width-request: 80;
+        height-request: 80;
+
+        styles [
+          "square-button",
+        ]
+      }
+    }
+
+    Box {
+      orientation: horizontal;
+      halign: center;
+      spacing: 1;
+
+      ToggleButton right_arm {
+        active: true;
+        width-request: 40;
+        height-request: 104;
+
+        styles [
+          "square-button",
+        ]
+      }
+
+      ToggleButton body {
+        active: true;
+        width-request: 80;
+        height-request: 104;
+
+        styles [
+          "square-button",
+        ]
+      }
+
+      ToggleButton left_arm {
+        active: true;
+        width-request: 40;
+        height-request: 104;
+
+        styles [
+          "square-button",
+        ]
+      }
+    }
+
+    Box {
+      orientation: horizontal;
+      halign: center;
+      spacing: 1;
+
+      ToggleButton right_leg {
+        active: true;
+        width-request: 40;
+        height-request: 104;
+
+        styles [
+          "square-button",
+        ]
+      }
+
+      ToggleButton left_leg {
+        active: true;
+        width-request: 40;
+        height-request: 104;
+
+        styles [
+          "square-button",
+        ]
+      }
+    }
+
+    Box {
+      margin-top: 4;
+      halign: center;
+
+      DropDown model_type_selector {
+        model: StringList {
+          strings [
+            "Slim (3px)",
+            "Classic (4px)",
+          ]
+        };
+      }
+    }
+  }
+}
