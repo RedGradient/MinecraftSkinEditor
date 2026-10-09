@@ -16,3 +16,4 @@ Cargo.lock
 .DS_Store
 .idea
 resources/mcskineditor.gresource
+.vscode/settings.json

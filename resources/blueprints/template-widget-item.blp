@@ -1,0 +1,21 @@
+using Gtk 4.0;
+
+template $TemplateWidgetItem: Button {
+  Box widget_item_box {
+    orientation: horizontal;
+    spacing: 10;
+
+    Image cover {
+      width-request: 100;
+      height-request: 100;
+    }
+
+    Label title {
+      visible: false;
+
+      styles [
+        "template-widget-item-title-color",
+      ]
+    }
+  }
+}

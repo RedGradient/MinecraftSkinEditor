@@ -1,0 +1,205 @@
+using Gtk 4.0;
+using Adw 1;
+
+menu main-menu {
+  item {
+    label: _("About Minecraft Skin Editor");
+    action: "win.about";
+  }
+}
+
+menu save_menu_model {
+  section {
+    item {
+      label: "Save as a template";
+      action: "win.action";
+    }
+  }
+}
+
+template $MCSkinEditorWindow: Adw.ApplicationWindow {
+  width-request: 360;
+  height-request: 660;
+  default-width: 800;
+
+  content: Box {
+    orientation: vertical;
+
+    Adw.HeaderBar header_bar {
+      [start]
+      ToggleButton wardrobe {
+        label: _("Wardrobe");
+      }
+
+      [start]
+      Adw.SplitButton open_button {
+        child: Adw.ButtonContent {
+          icon-name: "document-open-symbolic";
+          label: _("_Open");
+          use-underline: true;
+        };
+      }
+
+      [start]
+      Adw.SplitButton save_button {
+        child: Adw.ButtonContent {
+          icon-name: "document-save-symbolic";
+          label: _("Save");
+        };
+
+        menu-model: save_menu_model;
+      }
+
+      [start]
+      Button save_as_template_button {
+        child: Adw.ButtonContent {
+          icon-name: "document-save-symbolic";
+          label: _("Save template");
+          use-underline: true;
+        };
+
+        visible: false;
+      }
+
+      [start]
+      Button undo_button {
+        action-name: "win.undo";
+        icon-name: "edit-undo";
+        tooltip-text: "Undo";
+      }
+
+      [start]
+      Button redo_button {
+        action-name: "win.redo";
+        icon-name: "edit-redo";
+        tooltip-text: "Redo";
+      }
+
+      [end]
+      Button {
+        icon-name: "help-about";
+        action-name: "win.about";
+      }
+
+      [end]
+      ToggleButton grid_toggle {
+        styles [
+          "flat",
+        ]
+
+        tooltip-text: "Grid";
+        active: true;
+      }
+    }
+
+    Box content_box {
+      orientation: horizontal;
+      vexpand: true;
+      hexpand: true;
+
+      $TemplateList template_list {
+        visible: "false";
+      }
+
+      Box left_box {
+        orientation: vertical;
+        margin-top: 10;
+        margin-bottom: 10;
+        margin-start: 10;
+        margin-end: 10;
+        spacing: 10;
+
+        ColorDialogButton color_button {
+          width-request: 70;
+          height-request: 70;
+          rgba: "blue";
+        }
+
+        ToggleButton toggle_group {
+          visible: false;
+        }
+
+        ToggleButton pencil {
+          width-request: 70;
+          height-request: 70;
+          active: true;
+          group: toggle_group;
+        }
+
+        ToggleButton rubber {
+          width-request: 70;
+          height-request: 70;
+          group: toggle_group;
+        }
+
+        ToggleButton color_picker {
+          width-request: 70;
+          height-request: 70;
+          group: toggle_group;
+        }
+
+        ToggleButton random_color {
+          width-request: 70;
+          height-request: 70;
+          group: toggle_group;
+          tooltip-text: "Random color (beta)";
+
+          Label {
+            label: "Rand";
+            justify: center;
+            wrap: true;
+            wrap-mode: word;
+
+            styles [
+              "bigger-label",
+            ]
+          }
+        }
+
+        ToggleButton fill {
+          width-request: 70;
+          height-request: 70;
+          group: toggle_group;
+          label: "Fill";
+        }
+
+        ToggleButton replace_color {
+          width-request: 70;
+          height-request: 70;
+          group: toggle_group;
+          label: "Replace";
+        }
+
+        Box {
+          vexpand: true;
+        }
+
+        Button reset_skin_button {
+          label: "Reset";
+          width-request: 35;
+        }
+      }
+
+      $GliumGLArea gl_area {
+        vexpand: "true";
+        hexpand: "true";
+      }
+
+      Box right_box {
+        orientation: vertical;
+        margin-top: 10;
+        margin-bottom: 10;
+        margin-start: 10;
+        margin-end: 10;
+        spacing: 10;
+
+        Box {
+          orientation: vertical;
+          vexpand: true;
+        }
+
+        $ModelSwitcher model_switcher {}
+      }
+    }
+  };
+}

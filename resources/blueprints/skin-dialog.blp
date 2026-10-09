@@ -1,0 +1,29 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SkinDialog2: Adw.Dialog {
+  Box {
+    orientation: vertical;
+    spacing: 10;
+    margin-top: 10;
+    margin-bottom: 10;
+    margin-start: 10;
+    margin-end: 10;
+
+    [action]
+    Button slim_button {
+      label: "Slim (3 px)";
+    }
+
+    [action]
+    Button classic_button {
+      label: "Classic (4 px)";
+    }
+
+    [action]
+    Button discard {
+      label: "Discard";
+      action-name: "skin_dialog.discard";
+    }
+  }
+}
